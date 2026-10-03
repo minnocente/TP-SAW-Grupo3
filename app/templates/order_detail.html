@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Pedido #{{ order_id }}{% endblock %}
+{% block content %}
+<p><a class="link" href="{{ url_for('web.orders') }}">← Volver a pedidos</a></p>
+<h1 class="page-title">Pedido #{{ order_id }}</h1>
+
+<div id="detail"><p class="muted">Cargando…</p></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const ORDER_ID = {{ order_id }};
+(async function () {
+  const box = document.getElementById("detail");
+  const r = await api(`/api/orders/${ORDER_ID}`);
+  if (!r.ok) { box.innerHTML = `<div class="alert">No se pudo cargar el pedido (${r.status}).</div>`; return; }
+  const o = r.data;
+  const items = (o.items || []).map(it => `
+    <tr><td>${esc(it.product_name)}</td><td>${it.qty}</td><td>${money(it.unit_price)}</td>
+    <td>${money(it.qty * it.unit_price)}</td></tr>`).join("");
+  const ship = o.shipment
+    ? `${esc(o.shipment.carrier)} · ${esc(o.shipment.tracking)} (${esc(o.shipment.status)})`
+    : "Sin envío registrado";
+  const inv = o.invoice ? `${esc(o.invoice.number)} — ${money(o.invoice.amount)}` : "Sin factura";
+
+  box.innerHTML = `
+    <div class="detail-grid">
+      <div><span class="k">Estado</span>${statusTag(o.status)}</div>
+      <div><span class="k">Total</span>${money(o.total)}</div>
+      <div><span class="k">Fecha</span>${esc(o.created_at)}</div>
+      <div><span class="k">Cliente</span>#${esc(o.client_id)}</div>
+      <div class="wide"><span class="k">Notas</span>${esc(o.notes)}</div>
+      <div class="wide"><span class="k">Envío</span>${ship}</div>
+      <div class="wide"><span class="k">Factura</span>${inv}</div>
+    </div>
+    <h2 class="section-title">Renglones</h2>
+    <table class="table">
+      <thead><tr><th>Producto</th><th>Cant.</th><th>Precio</th><th>Subtotal</th></tr></thead>
+      <tbody>${items || '<tr><td colspan="4" class="muted">Sin renglones.</td></tr>'}</tbody>
+    </table>`;
+})();
+</script>
+{% endblock %}

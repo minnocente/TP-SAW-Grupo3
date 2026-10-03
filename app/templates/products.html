@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Productos{% endblock %}
+{% block content %}
+<h1 class="page-title">Catálogo de productos</h1>
+
+<form class="searchbar" id="searchForm" onsubmit="return false;">
+  <input type="text" id="q" placeholder="Buscar por nombre o SKU…">
+  <button class="btn" id="btnSearch">Buscar</button>
+  <button class="btn btn-ghost" id="btnAll">Ver todos</button>
+</form>
+
+<table class="table">
+  <thead><tr><th>#</th><th>Producto</th><th>SKU</th><th>Precio</th><th>Stock</th></tr></thead>
+  <tbody id="rows"><tr><td colspan="5" class="muted">Cargando…</td></tr></tbody>
+</table>
+<p class="muted" id="msg"></p>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const tb = document.getElementById("rows");
+const msg = document.getElementById("msg");
+
+function render(list) {
+  if (!Array.isArray(list) || !list.length) {
+    tb.innerHTML = '<tr><td colspan="5" class="muted">Sin resultados.</td></tr>';
+    return;
+  }
+  tb.innerHTML = list.map(p => `
+    <tr><td>#${esc(p.id)}</td><td>${esc(p.name)}</td><td>${esc(p.sku)}</td>
+    <td>${money(p.price)}</td><td>${esc(p.stock)}</td></tr>`).join("");
+}
+
+async function loadAll() {
+  msg.textContent = "";
+  const r = await api("/api/products");
+  render(r.ok ? r.data : []);
+}
+
+async function doSearch() {
+  msg.textContent = "";
+  const q = document.getElementById("q").value;
+  const r = await api(`/api/products/search?q=${encodeURIComponent(q)}`);
+  if (r.ok) { render(r.data); }
+  else { tb.innerHTML = ""; msg.textContent = "Error en la búsqueda."; }
+}
+
+document.getElementById("btnSearch").addEventListener("click", doSearch);
+document.getElementById("btnAll").addEventListener("click", loadAll);
+document.getElementById("q").addEventListener("keydown", e => { if (e.key === "Enter") doSearch(); });
+loadAll();
+</script>
+{% endblock %}

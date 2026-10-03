@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Panel{% endblock %}
+{% block content %}
+<h1 class="page-title">Panel de control</h1>
+<p class="muted" id="welcome">Cargando…</p>
+
+<div class="cards" id="stats">
+  <div class="card"><div class="card-num" id="st-total">—</div><div class="card-lbl">Pedidos</div></div>
+  <div class="card"><div class="card-num" id="st-proc">—</div><div class="card-lbl">En proceso</div></div>
+  <div class="card"><div class="card-num" id="st-pend">—</div><div class="card-lbl">Pendientes</div></div>
+  <div class="card"><div class="card-num" id="st-env">—</div><div class="card-lbl">Enviados</div></div>
+</div>
+
+<h2 class="section-title">Pedidos recientes</h2>
+<table class="table">
+  <thead><tr><th>#</th><th>Estado</th><th>Total</th><th>Fecha</th><th></th></tr></thead>
+  <tbody id="recent"><tr><td colspan="5" class="muted">Cargando…</td></tr></tbody>
+</table>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(async function () {
+  const prof = await api("/api/profile");
+  if (prof.ok) {
+    document.getElementById("welcome").textContent =
+      `${prof.data.full_name || prof.data.username} — ${prof.data.client_name}`;
+  }
+  const r = await api("/api/orders");
+  const orders = r.ok ? r.data : [];
+  const by = (s) => orders.filter(o => o.status === s).length;
+  document.getElementById("st-total").textContent = orders.length;
+  document.getElementById("st-proc").textContent = by("procesando");
+  document.getElementById("st-pend").textContent = by("pendiente");
+  document.getElementById("st-env").textContent = by("enviado");
+
+  const tb = document.getElementById("recent");
+  if (!orders.length) { tb.innerHTML = '<tr><td colspan="5" class="muted">Sin pedidos.</td></tr>'; return; }
+  tb.innerHTML = orders.slice(-5).reverse().map(o => `
+    <tr>
+      <td>#${o.id}</td>
+      <td>${statusTag(o.status)}</td>
+      <td>${money(o.total)}</td>
+      <td>${esc(o.created_at)}</td>
+      <td><a class="link" href="/orders/${o.id}">Ver</a></td>
+    </tr>`).join("");
+})();
+</script>
+{% endblock %}

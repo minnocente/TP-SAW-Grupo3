@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}OrderFlow{% endblock %} · OrderFlow</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+{% if g.user %}
+<header class="topbar">
+  <div class="brand"><span class="logo">◆</span> OrderFlow</div>
+  <nav class="mainnav">
+    <a href="{{ url_for('web.dashboard') }}" class="{{ 'active' if request.endpoint == 'web.dashboard' }}">Panel</a>
+    <a href="{{ url_for('web.orders') }}" class="{{ 'active' if request.endpoint in ['web.orders','web.order_detail'] }}">Pedidos</a>
+    <a href="{{ url_for('web.products') }}" class="{{ 'active' if request.endpoint == 'web.products' }}">Productos</a>
+    <a href="{{ url_for('web.profile') }}" class="{{ 'active' if request.endpoint == 'web.profile' }}">Perfil</a>
+  </nav>
+  <div class="userbox">
+    <span class="user">{{ g.user['username'] }}{% if g.user['role'] == 'admin' %} <span class="badge">admin</span>{% endif %}</span>
+    <a class="logout" href="{{ url_for('web.logout') }}">Salir</a>
+  </div>
+</header>
+{% endif %}
+
+<main class="content">
+  {% block content %}{% endblock %}
+</main>
+
+<footer class="footer">
+  OrderFlow · Plataforma de gestión de pedidos y logística — entorno interno
+</footer>
+
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

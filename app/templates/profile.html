@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Perfil{% endblock %}
+{% block content %}
+<h1 class="page-title">Mi perfil</h1>
+<div class="detail-grid" id="prof"><p class="muted">Cargando…</p></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(async function () {
+  const r = await api("/api/profile");
+  const box = document.getElementById("prof");
+  if (!r.ok) { box.innerHTML = '<div class="alert">No se pudo cargar el perfil.</div>'; return; }
+  const p = r.data;
+  box.innerHTML = `
+    <div><span class="k">Usuario</span>${esc(p.username)}</div>
+    <div><span class="k">Nombre</span>${esc(p.full_name)}</div>
+    <div><span class="k">Rol</span>${esc(p.role)}</div>
+    <div><span class="k">Cliente</span>${esc(p.client_name)}</div>
+    <div class="wide"><span class="k">Email</span>${esc(p.client_email)}</div>`;
+})();
+</script>
+{% endblock %}
