@@ -15,6 +15,7 @@
     { "name": "Pedidos" },
     { "name": "Envíos" },
     { "name": "Facturación" },
+    { "name": "Reportes (v1)", "description": "Endpoints legacy de reportes y comprobantes" },
     { "name": "Administración" },
     { "name": "Meta" }
   ],
@@ -110,6 +111,22 @@
         "tags": ["Pedidos"], "summary": "Buscar pedidos propios por estado",
         "parameters": [ { "name": "status", "in": "query", "required": false, "schema": { "type": "string" } } ],
         "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/api/v1/pedidos/{pedido_id}/comprobante": {
+      "get": {
+        "tags": ["Reportes (v1)"], "summary": "Comprobante de un pedido (legacy)",
+        "description": "Devuelve el comprobante (referencia de factura, cliente y total) de un pedido.",
+        "parameters": [ { "name": "pedido_id", "in": "path", "required": true, "schema": { "type": "integer" } } ],
+        "responses": { "200": { "description": "OK" }, "404": { "description": "No encontrado" } }
+      }
+    },
+    "/api/v1/facturas/ver": {
+      "get": {
+        "tags": ["Reportes (v1)"], "summary": "Ver factura por referencia (legacy)",
+        "description": "Consulta una factura por su referencia (formato FAC-AAAA-NNNNN).",
+        "parameters": [ { "name": "ref", "in": "query", "required": true, "schema": { "type": "string" }, "description": "Referencia de factura, ej. FAC-2026-00458" } ],
+        "responses": { "200": { "description": "OK" }, "400": { "description": "Formato inválido" } }
       }
     },
     "/api/shipments": {

@@ -3,11 +3,10 @@
 El decorador `login_required` valida que haya una sesión iniciada.
 El decorador `admin_required` valida además el rol de administrador.
 
-NOTA DE LABORATORIO (A01 - Broken Function Level Authorization):
-el decorador `admin_required` existe y se usa en casi todos los endpoints
-de administración... pero intencionalmente NO se aplica en
-`POST /api/admin/orders/<id>` (ver app/routes/api.py). Ese olvido es la
-vulnerabilidad del Paso 4 de la cadena.
+NOTA DE LABORATORIO: las vulnerabilidades de la cadena viven en
+`app/routes/api.py` (ver endpoints `/api/v1/...`). Los controles de acceso de
+este módulo son correctos; el IDOR del Paso 2 ocurre porque el endpoint del
+comprobante no usa estos decoradores para validar propiedad del recurso.
 """
 from functools import wraps
 
@@ -22,7 +21,7 @@ def load_logged_in_user():
     g.user = None
     if user_id is not None:
         g.user = query(
-            "SELECT id, username, role, client_id FROM users WHERE id = ?",
+            "SELECT id, username, role, client_id FROM users WHERE id = %s",
             (user_id,),
             one=True,
         )

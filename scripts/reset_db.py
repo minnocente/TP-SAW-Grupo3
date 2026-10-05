@@ -19,7 +19,11 @@ def main():
     app = create_app()
     with app.app_context():
         init_db()
-        print(f"Base reiniciada en: {app.config['DATABASE']}")
+        cfg = app.config
+        print(
+            f"Base reiniciada: {cfg['DB_NAME']} en {cfg['DB_HOST']}:{cfg['DB_PORT']}"
+            f" (usuario {cfg['DB_USER']})"
+        )
 
 
 if __name__ == "__main__":

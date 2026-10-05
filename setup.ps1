@@ -1,4 +1,4 @@
-# Setup del laboratorio OrderFlow (Windows / PowerShell)
+# Setup del laboratorio OrderFlow (Windows / PowerShell) -- PostgreSQL
 # Crea el entorno virtual, instala dependencias e inicializa la base de datos.
 $ErrorActionPreference = "Stop"
 
@@ -11,6 +11,17 @@ if (-not $python) {
   Write-Host "ERROR: Python 3 no esta instalado. Instalalo desde https://www.python.org/downloads/ (marca 'Add to PATH')." -ForegroundColor Red
   exit 1
 }
+
+# Verificar PostgreSQL (psql)
+$psqlCmd = Get-Command psql -ErrorAction SilentlyContinue
+if (-not $psqlCmd) {
+  Write-Host "ERROR: PostgreSQL (psql) no esta en el PATH. Instalalo desde https://www.postgresql.org/download/windows/" -ForegroundColor Red
+  exit 1
+}
+
+# Provisiona rol + base si no existen (pide la clave del superusuario 'postgres').
+Write-Host "Provisionando base PostgreSQL (rol orderflow / base orderflow_lab)..."
+& psql -U postgres -v ON_ERROR_STOP=1 -f db\create_db.sql
 
 # Crear entorno virtual
 if (-not (Test-Path ".venv")) {

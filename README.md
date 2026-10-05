@@ -6,7 +6,8 @@ Maqueta local de una plataforma ficticia de **gestión de pedidos y logística**
 
 La aplicación contiene **vulnerabilidades sembradas a propósito** que permiten
 demostrar, en vivo, una **cadena de explotación** completa: un usuario con
-permisos básicos escala su acceso hasta **modificar pedidos de otros clientes**.
+permisos básicos (un competidor malicioso) llega a **exfiltrar el historial
+comercial y los datos de tarjeta de otro cliente**.
 
 > ⚠️ **Uso educativo.** Esta aplicación es intencionalmente vulnerable. Está
 > pensada para correr **solo en local** (`127.0.0.1`). No la expongas a Internet
@@ -18,20 +19,22 @@ permisos básicos escala su acceso hasta **modificar pedidos de otros clientes**
 
 | Paso | Vulnerabilidad | Resultado |
 |------|----------------|-----------|
-| 1 | **A02 – Security Misconfiguration** | La documentación de la API (`/api/docs`) es accesible sin control → mapa de endpoints. |
-| 2 | **A01 – Broken Access Control / IDOR** | `GET /api/orders/{id}` no valida propiedad → datos de otros clientes. |
-| 3 | **A05 – Injection** + **A10 – Mishandling of Exceptional Conditions** | `GET /api/products/search` arma SQL por concatenación y filtra errores → estructura interna. |
-| 4 | **A01 – Broken Function Level Authorization** | `POST /api/admin/orders/{id}` no valida rol → modificación de pedidos ajenos (objetivo final). |
+| 1 | **A02 – Security Misconfiguration** | La documentación de la API (`/api/docs`) es accesible sin control → se descubre un endpoint *legacy*: `GET /api/v1/pedidos/{id}/comprobante`. |
+| 2 | **A01 – Broken Access Control / IDOR** | `GET /api/v1/pedidos/{id}/comprobante` no valida propiedad → se leen comprobantes de otros clientes (víctima `cliente_id=458`, factura `FAC-2026-00458`). |
+| 3 | **A10 – Mishandling of Exceptional Conditions** | `GET /api/v1/facturas/ver?ref=` tiene un filtro de formato *bypassable*; al romper el SQL, el error 500 filtra el stack trace de la base, la query y la tabla `transacciones`. |
+| 4 | **A05 – Injection** + **A04 – Cryptographic Failures** | La misma ruta arma SQL por concatenación → `ref=FAC-2026-00458' OR cliente_id=458--` devuelve todo el historial de la víctima, con **tarjetas en texto plano** (objetivo final). |
 
-El paso a paso para la demo está en [`Documentacion/WALKTHROUGH.md`](Documentacion/WALKTHROUGH.md).
-El detalle técnico y las mitigaciones, en [`Documentacion/VULNERABILIDADES.md`](Documentacion/VULNERABILIDADES.md).
+El paso a paso para la demo está en [`Documentacion/WALKTHROUGH.md`](Documentacion/WALKTHROUGH.md)
+(Windows) y [`Documentacion/WALKTHROUGH_LINUX_MINT.md`](Documentacion/WALKTHROUGH_LINUX_MINT.md)
+(Linux Mint / macOS). El detalle técnico y las mitigaciones, en
+[`Documentacion/VULNERABILIDADES.md`](Documentacion/VULNERABILIDADES.md).
 
 ---
 
 ## Stack
 
 - **Python 3 + Flask** (API REST + vistas server-rendered con Jinja2)
-- **SQLite** (base por archivo, sin servidor)
+- **PostgreSQL** (vía `psycopg2`)
 - **flask-swagger-ui** (documentación interactiva de la API)
 - Front liviano: HTML + CSS + JS *vanilla* (sin build, funciona offline)
 
@@ -42,9 +45,13 @@ El detalle técnico y las mitigaciones, en [`Documentacion/VULNERABILIDADES.md`]
 - **Python 3.10+** — si no lo tenés, instalalo desde
   [python.org/downloads](https://www.python.org/downloads/) (en Windows, marcá
   *"Add Python to PATH"* durante la instalación).
+- **PostgreSQL 13+** corriendo en local:
+  - Linux (Debian/Ubuntu/Mint): `sudo apt install postgresql`
+  - Windows: instalador de [postgresql.org](https://www.postgresql.org/download/windows/)
+    (asegurate de que `psql` quede en el PATH).
 
-No hace falta nada más: SQLite viene con Python y las dependencias se instalan
-en un entorno virtual local.
+El setup crea automáticamente el rol `orderflow` y la base `orderflow_lab`
+(credenciales de laboratorio, ver `app/config.py` / `db/create_db.sql`).
 
 ---
 
@@ -53,7 +60,7 @@ en un entorno virtual local.
 ### Windows (PowerShell)
 
 ```powershell
-.\setup.ps1     # crea el entorno virtual, instala deps e inicializa la base
+.\setup.ps1     # provisiona la base, crea el venv, instala deps e inicializa datos
 .\run.ps1       # inicia la app en http://127.0.0.1:5000
 ```
 
@@ -64,6 +71,10 @@ chmod +x setup.sh run.sh
 ./setup.sh
 ./run.sh
 ```
+
+> El `setup` usa el superusuario `postgres` para crear el rol y la base
+> (en Linux, vía `sudo -u postgres`). Si tu Postgres usa otra autenticación,
+> podés correr la provisión a mano: `psql -U postgres -f db/create_db.sql`.
 
 Luego abrí **http://127.0.0.1:5000** e ingresá con alguno de los usuarios de
 prueba (ver abajo).
@@ -78,14 +89,13 @@ python scripts/reset_db.py
 
 ## Usuarios de prueba
 
-| Usuario | Contraseña | Rol | Cliente |
-|---------|-----------|-----|---------|
-| `cliente1` | `cliente123` | user | Distribuidora Andina S.A. |
-| `cliente2` | `cliente123` | user | Comercial del Plata SRL |
-| `cliente3` | `cliente123` | user | Importadora Sur SA |
-| `admin` | `admin123` | admin | OrderFlow Operaciones |
+| Usuario | Contraseña | Rol | Cliente (client_id) |
+|---------|-----------|-----|---------------------|
+| `nico` | `nico123` | user | Competidora Rápida SRL (89) — **atacante** |
+| `clopez` | `cliente123` | user | Comercial Lopez e Hijos S.A. (458) — **víctima** |
+| `admin` | `admin123` | admin | OrderFlow Operaciones (1) |
 
-El **atacante** de la demo es `cliente1`. Detalle en
+El **atacante** de la demo es `nico`. Detalle en
 [`Documentacion/CREDENCIALES.md`](Documentacion/CREDENCIALES.md).
 
 ---
@@ -94,12 +104,11 @@ El **atacante** de la demo es `cliente1`. Detalle en
 
 ```
 app/            Aplicación Flask (factory, auth, db, rutas web y API)
-  routes/api.py   <- concentra las 4 vulnerabilidades
+  routes/api.py   <- concentra las vulnerabilidades (endpoints /api/v1/...)
   routes/web.py   <- la fachada de "app normal"
   templates/      <- vistas Jinja
   static/         <- CSS, JS y openapi.json
-db/             Esquema (schema.sql) y datos de ejemplo (seed.sql)
+db/             schema.sql, seed.sql y create_db.sql (provisión del rol/base)
 scripts/        reset_db.py (recrea y re-seedea la base)
-data/           Base SQLite generada (lab.sqlite, ignorada por git)
-Documentacion/  Propuesta, walkthrough de la demo y análisis de vulnerabilidades
+Documentacion/  Propuesta, walkthroughs de la demo y análisis de vulnerabilidades
 ```

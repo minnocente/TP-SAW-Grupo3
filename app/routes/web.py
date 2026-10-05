@@ -28,7 +28,7 @@ def login():
         username = (request.form.get("username") or "").strip()
         password = request.form.get("password") or ""
         user = query(
-            "SELECT id, password_hash FROM users WHERE username = ?",
+            "SELECT id, password_hash FROM users WHERE username = %s",
             (username,),
             one=True,
         )

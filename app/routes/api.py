@@ -1,15 +1,23 @@
 """API REST de OrderFlow.
 
-Esta capa es la superficie de ataque del laboratorio. Contiene las cuatro
+Esta capa es la superficie de ataque del laboratorio. Contiene las
 vulnerabilidades de la cadena, marcadas con comentarios  >>> VULN <<< .
 El resto de los endpoints son "de decorado": realistas pero de implementación
 mínima, para que la documentación de la API (Paso 1) luzca completa.
+
+Cadena (nueva propuesta):
+    Paso 1  A02  /api/docs expuesto  ->  revela el endpoint legacy del comprobante
+    Paso 2  A01  GET /api/v1/pedidos/<id>/comprobante  (IDOR, sin validar propiedad)
+    Paso 3  A10  GET /api/v1/facturas/ver?ref=...      (filtro bypassable + fuga de error)
+    Paso 4  A05  idem  (SQLi por concatenación)  +  A04 (tarjetas en texto plano)
 """
+import re
+
 from flask import Blueprint, g, jsonify, request, session
 from werkzeug.security import check_password_hash
 
 from ..auth import admin_required, login_required
-from ..db import get_db, query
+from ..db import execute, get_db, query
 
 bp = Blueprint("api", __name__, url_prefix="/api")
 
@@ -45,7 +53,7 @@ def login():
     password = data.get("password") or ""
     # Consulta parametrizada: el login NO es inyectable.
     user = query(
-        "SELECT id, username, password_hash, role, client_id FROM users WHERE username = ?",
+        "SELECT id, username, password_hash, role, client_id FROM users WHERE username = %s",
         (username,),
         one=True,
     )
@@ -76,7 +84,7 @@ def get_profile():
     user = query(
         "SELECT u.id, u.username, u.full_name, u.role, u.client_id,"
         " c.name AS client_name, c.email AS client_email"
-        " FROM users u JOIN clients c ON c.id = u.client_id WHERE u.id = ?",
+        " FROM users u JOIN clients c ON c.id = u.client_id WHERE u.id = %s",
         (g.user["id"],),
         one=True,
     )
@@ -88,11 +96,7 @@ def get_profile():
 def update_profile():
     data = request.get_json(silent=True) or request.form
     full_name = data.get("full_name")
-    db = get_db()
-    db.execute(
-        "UPDATE users SET full_name = ? WHERE id = ?", (full_name, g.user["id"])
-    )
-    db.commit()
+    execute("UPDATE users SET full_name = %s WHERE id = %s", (full_name, g.user["id"]))
     return jsonify({"status": "perfil actualizado"})
 
 
@@ -112,7 +116,7 @@ def get_client(client_id):
     if g.user["role"] != "admin" and g.user["client_id"] != client_id:
         return jsonify({"error": "No autorizado"}), 403
     c = query(
-        "SELECT id, name, email, phone, address FROM clients WHERE id = ?",
+        "SELECT id, name, email, phone, address FROM clients WHERE id = %s",
         (client_id,),
         one=True,
     )
@@ -134,7 +138,7 @@ def list_products():
 @login_required
 def get_product(product_id):
     p = query(
-        "SELECT id, name, sku, price, stock FROM products WHERE id = ?",
+        "SELECT id, name, sku, price, stock FROM products WHERE id = %s",
         (product_id,),
         one=True,
     )
@@ -146,23 +150,15 @@ def get_product(product_id):
 @bp.get("/products/search")
 @login_required
 def search_products():
-    """Búsqueda de productos por nombre/SKU.
-
-    >>> VULN (Paso 3) - A05 Injection + A10 Mishandling of Exceptional Conditions <<<
-    La consulta se arma concatenando el parámetro `q` directamente en el SQL.
-    Además, si la consulta falla, se devuelve el mensaje de error y la query
-    completa (fuga de estructura interna).
-    """
+    """Búsqueda de productos por nombre/SKU (consulta parametrizada, segura)."""
     q = request.args.get("q", "")
-    sql = (
-        "SELECT id, name, sku, price, stock FROM products "
-        f"WHERE name LIKE '%{q}%' OR sku LIKE '%{q}%'"
+    like = f"%{q}%"
+    result = query(
+        "SELECT id, name, sku, price, stock FROM products"
+        " WHERE name ILIKE %s OR sku ILIKE %s",
+        (like, like),
     )
-    try:
-        result = get_db().execute(sql).fetchall()
-        return jsonify(rows(result))
-    except Exception as exc:  # noqa: BLE001  (fuga intencional de errores)
-        return jsonify({"error": str(exc), "query": sql}), 500
+    return jsonify(rows(result))
 
 
 @bp.get("/stock")
@@ -180,7 +176,7 @@ def list_orders():
     """Lista los pedidos del cliente del usuario (comportamiento correcto)."""
     result = query(
         "SELECT id, client_id, status, total, notes, created_at"
-        " FROM orders WHERE client_id = ? ORDER BY id",
+        " FROM orders WHERE client_id = %s ORDER BY id",
         (g.user["client_id"],),
     )
     return jsonify(rows(result))
@@ -189,28 +185,25 @@ def list_orders():
 @bp.get("/orders/<int:order_id>")
 @login_required
 def get_order(order_id):
-    """Detalle de un pedido.
-
-    >>> VULN (Paso 2) - A01 Broken Access Control / IDOR <<<
-    Sólo se exige estar autenticado; NO se verifica que el pedido pertenezca
-    al cliente del usuario. Cambiando el id se accede a pedidos ajenos.
-    """
+    """Detalle de un pedido (con validación de propiedad)."""
     order = query(
-        "SELECT id, client_id, status, total, notes, created_at FROM orders WHERE id = ?",
+        "SELECT id, client_id, status, total, notes, created_at FROM orders WHERE id = %s",
         (order_id,),
         one=True,
     )
     if order is None:
         return jsonify({"error": "Pedido no encontrado"}), 404
+    if g.user["role"] != "admin" and order["client_id"] != g.user["client_id"]:
+        return jsonify({"error": "No autorizado"}), 403
 
     items = query(
         "SELECT oi.id, oi.product_id, p.name AS product_name, oi.qty, oi.unit_price"
         " FROM order_items oi JOIN products p ON p.id = oi.product_id"
-        " WHERE oi.order_id = ?",
+        " WHERE oi.order_id = %s",
         (order_id,),
     )
-    shipment = query("SELECT * FROM shipments WHERE order_id = ?", (order_id,), one=True)
-    invoice = query("SELECT * FROM invoices WHERE order_id = ?", (order_id,), one=True)
+    shipment = query("SELECT * FROM shipments WHERE order_id = %s", (order_id,), one=True)
+    invoice = query("SELECT * FROM invoices WHERE order_id = %s", (order_id,), one=True)
 
     data = row(order)
     data["items"] = rows(items)
@@ -222,9 +215,13 @@ def get_order(order_id):
 @bp.get("/orders/<int:order_id>/items")
 @login_required
 def get_order_items(order_id):
-    # Mismo recurso que el detalle: parte de la superficie del IDOR (Paso 2).
+    order = query("SELECT client_id FROM orders WHERE id = %s", (order_id,), one=True)
+    if order is None:
+        return jsonify({"error": "Pedido no encontrado"}), 404
+    if g.user["role"] != "admin" and order["client_id"] != g.user["client_id"]:
+        return jsonify({"error": "No autorizado"}), 403
     items = query(
-        "SELECT id, order_id, product_id, qty, unit_price FROM order_items WHERE order_id = ?",
+        "SELECT id, order_id, product_id, qty, unit_price FROM order_items WHERE order_id = %s",
         (order_id,),
     )
     return jsonify(rows(items))
@@ -235,13 +232,13 @@ def get_order_items(order_id):
 def create_order():
     data = request.get_json(silent=True) or request.form
     notes = data.get("notes", "")
-    db = get_db()
-    cur = db.execute(
-        "INSERT INTO orders (client_id, status, total, notes) VALUES (?, 'pendiente', 0, ?)",
+    new = execute(
+        "INSERT INTO orders (client_id, status, total, notes)"
+        " VALUES (%s, 'pendiente', 0, %s) RETURNING id",
         (g.user["client_id"], notes),
+        returning=True,
     )
-    db.commit()
-    return jsonify({"id": cur.lastrowid, "status": "pendiente"}), 201
+    return jsonify({"id": new["id"], "status": "pendiente"}), 201
 
 
 @bp.get("/orders/search")
@@ -251,10 +248,80 @@ def search_orders():
     status = request.args.get("status", "")
     result = query(
         "SELECT id, client_id, status, total, notes, created_at"
-        " FROM orders WHERE client_id = ? AND status LIKE ? ORDER BY id",
+        " FROM orders WHERE client_id = %s AND status ILIKE %s ORDER BY id",
         (g.user["client_id"], f"%{status}%"),
     )
     return jsonify(rows(result))
+
+
+# --------------------------------------------------------------------------- #
+# Pedidos v1 (API legacy de reportes)
+# --------------------------------------------------------------------------- #
+@bp.get("/v1/pedidos/<int:pedido_id>/comprobante")
+@login_required
+def comprobante(pedido_id):
+    """Comprobante de un pedido (endpoint legacy de reportes).
+
+    >>> VULN (Paso 2) - A01 Broken Access Control / IDOR <<<
+    Sólo exige estar autenticado; NO verifica que el pedido pertenezca al
+    cliente del usuario. Probando ids correlativos se accede a comprobantes
+    ajenos (y así se descubre el cliente víctima y su referencia de factura).
+    """
+    o = query(
+        "SELECT id, client_id, total, factura_referencia, created_at"
+        " FROM orders WHERE id = %s",
+        (pedido_id,),
+        one=True,
+    )
+    if o is None:
+        return jsonify({"error": "Comprobante no encontrado"}), 404
+    fecha = o["created_at"].date() if o["created_at"] is not None else None
+    return jsonify(
+        {
+            "pedido_id": o["id"],
+            "fecha": fecha,
+            "cliente_id": o["client_id"],
+            "factura_referencia": o["factura_referencia"],
+            "total": o["total"],
+        }
+    )
+
+
+# --------------------------------------------------------------------------- #
+# Facturación v1
+# --------------------------------------------------------------------------- #
+@bp.get("/v1/facturas/ver")
+@login_required
+def ver_factura():
+    """Consulta de una factura por su referencia.
+
+    >>> VULN (Pasos 3 y 4) - A10 + A05 + A04 <<<
+    - A10: hay un filtro de formato con regex, pero `re.match` ancla sólo el
+      INICIO del string (sin `$`), así que un payload que empieza con una ref
+      válida y concatena SQL igual lo supera. Ante una excepción se devuelve el
+      mensaje de error y la query completa (fuga de estructura interna).
+    - A05: la consulta se arma CONCATENANDO el parámetro `ref` en el SQL.
+    - A04: `datos_pago` guarda tarjetas en texto plano y se devuelven tal cual.
+    """
+    ref = request.args.get("ref", "")
+
+    # Filtro de formato (bypassable: ancla sólo el inicio).
+    if not re.match(r"^FAC-\d{4}-\d{5}", ref):
+        return jsonify({"error": "Formato de referencia inválido"}), 400
+
+    sql = (
+        "SELECT id, cliente_id, fecha, total, detalle_items, datos_pago "
+        f"FROM transacciones WHERE ref = '{ref}'"
+    )
+    db = get_db()
+    try:
+        with db.cursor() as cur:
+            cur.execute(sql)
+            result = cur.fetchall()
+        return jsonify(rows(result))
+    except Exception as exc:  # noqa: BLE001  (fuga intencional de errores)
+        db.rollback()
+        return jsonify({"error": str(exc), "query": sql}), 500
 
 
 # --------------------------------------------------------------------------- #
@@ -271,7 +338,7 @@ def list_shipments():
 def get_shipment(shipment_id):
     s = query(
         "SELECT s.*, o.client_id FROM shipments s JOIN orders o ON o.id = s.order_id"
-        " WHERE s.id = ?",
+        " WHERE s.id = %s",
         (shipment_id,),
         one=True,
     )
@@ -296,7 +363,7 @@ def list_invoices():
 def get_invoice(invoice_id):
     inv = query(
         "SELECT i.*, o.client_id FROM invoices i JOIN orders o ON o.id = i.order_id"
-        " WHERE i.id = ?",
+        " WHERE i.id = %s",
         (invoice_id,),
         one=True,
     )
@@ -327,26 +394,20 @@ def admin_list_users():
 @bp.get("/admin/stats")
 @admin_required
 def admin_stats():
-    db = get_db()
     return jsonify(
         {
-            "clients": db.execute("SELECT COUNT(*) AS n FROM clients").fetchone()["n"],
-            "orders": db.execute("SELECT COUNT(*) AS n FROM orders").fetchone()["n"],
-            "products": db.execute("SELECT COUNT(*) AS n FROM products").fetchone()["n"],
+            "clients": query("SELECT COUNT(*) AS n FROM clients", one=True)["n"],
+            "orders": query("SELECT COUNT(*) AS n FROM orders", one=True)["n"],
+            "products": query("SELECT COUNT(*) AS n FROM products", one=True)["n"],
         }
     )
 
 
 @bp.post("/admin/orders/<int:order_id>")
-@login_required  # >>> VULN (Paso 4) - A01 Broken Function Level Authorization <<<
+@admin_required
 def admin_update_order(order_id):
-    """Actualiza un pedido (estado / notas / total).
-
-    Esta función es de administración, pero sólo usa `login_required` en vez de
-    `admin_required`: NO verifica el rol. Un usuario común puede invocarla para
-    modificar pedidos de cualquier cliente. Es el objetivo final de la cadena.
-    """
-    order = query("SELECT id FROM orders WHERE id = ?", (order_id,), one=True)
+    """Actualiza un pedido (estado / notas / total). Requiere rol admin."""
+    order = query("SELECT id FROM orders WHERE id = %s", (order_id,), one=True)
     if order is None:
         return jsonify({"error": "Pedido no encontrado"}), 404
 
@@ -354,17 +415,15 @@ def admin_update_order(order_id):
     fields, params = [], []
     for col in ("status", "notes", "total"):
         if col in data:
-            fields.append(f"{col} = ?")
+            fields.append(f"{col} = %s")
             params.append(data.get(col))
     if not fields:
         return jsonify({"error": "Nada para actualizar"}), 400
 
     params.append(order_id)
-    db = get_db()
-    db.execute(f"UPDATE orders SET {', '.join(fields)} WHERE id = ?", params)
-    db.commit()
+    execute(f"UPDATE orders SET {', '.join(fields)} WHERE id = %s", params)
     updated = query(
-        "SELECT id, client_id, status, total, notes FROM orders WHERE id = ?",
+        "SELECT id, client_id, status, total, notes FROM orders WHERE id = %s",
         (order_id,),
         one=True,
     )

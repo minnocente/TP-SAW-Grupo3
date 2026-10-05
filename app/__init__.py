@@ -3,9 +3,11 @@
 Plataforma ficticia de gestión de pedidos y logística (OrderFlow) usada como
 laboratorio de seguridad. Contiene vulnerabilidades sembradas a propósito.
 """
-import os
+from datetime import date, datetime
+from decimal import Decimal
 
 from flask import Flask
+from flask.json.provider import DefaultJSONProvider
 from flask_swagger_ui import get_swaggerui_blueprint
 
 from . import auth, db
@@ -16,9 +18,24 @@ SWAGGER_URL = "/api/docs"          # Paso 1 (A02): docs accesibles sin auth
 OPENAPI_URL = "/static/openapi.json"
 
 
+class LabJSONProvider(DefaultJSONProvider):
+    """Serializa los tipos de PostgreSQL (Decimal, date) que devuelve psycopg2."""
+
+    sort_keys = False
+
+    @staticmethod
+    def default(o):
+        if isinstance(o, Decimal):
+            return float(o)
+        if isinstance(o, (datetime, date)):
+            return o.isoformat()
+        return DefaultJSONProvider.default(o)
+
+
 def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
+    app.json = LabJSONProvider(app)
 
     # Infra
     db.init_app(app)
@@ -39,9 +56,12 @@ def create_app(config_class=Config):
     )
     app.register_blueprint(swagger_bp, url_prefix=SWAGGER_URL)
 
-    # Crea la base automáticamente si todavía no existe.
+    # Crea el esquema automáticamente si todavía no existe.
     with app.app_context():
-        if not os.path.exists(app.config["DATABASE"]):
-            db.init_db()
+        try:
+            if not db.schema_ready():
+                db.init_db()
+        except Exception as exc:  # noqa: BLE001
+            app.logger.warning("No se pudo inicializar la base: %s", exc)
 
     return app
