@@ -1,0 +1,29 @@
+# Laboratorio OrderFlow — Flask + PostgreSQL en contenedores.
+# Uso:  docker compose up --build   ->  http://127.0.0.1:5000
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: orderflow
+      POSTGRES_PASSWORD: orderflow
+      POSTGRES_DB: orderflow_lab
+    # Base efímera a propósito (sin volumen): cada `up` tras un `down` arranca
+    # limpio y la app re-siembra. La imagen crea rol+base automáticamente, así
+    # que db/create_db.sql no se usa dentro de Docker.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U orderflow -d orderflow_lab"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      # El resto de la conexión toma los defaults de app/config.py.
+      DB_HOST: db
+    depends_on:
+      db:
+        condition: service_healthy

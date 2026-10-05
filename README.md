@@ -42,6 +42,10 @@ El paso a paso para la demo está en [`Documentacion/WALKTHROUGH.md`](Documentac
 
 ## Requisitos
 
+> Si usás **Docker** (Opción A, más abajo) no necesitás instalar Python ni
+> PostgreSQL: alcanza con Docker + Docker Compose. Lo de abajo es para la
+> instalación local (Opción B).
+
 - **Python 3.10+** — si no lo tenés, instalalo desde
   [python.org/downloads](https://www.python.org/downloads/) (en Windows, marcá
   *"Add Python to PATH"* durante la instalación).
@@ -57,14 +61,38 @@ El setup crea automáticamente el rol `orderflow` y la base `orderflow_lab`
 
 ## Cómo ejecutar
 
-### Windows (PowerShell)
+### Opción A — Docker (recomendado para la demo)
+
+Requiere **Docker** y **Docker Compose**. Levanta Flask + PostgreSQL ya
+provisionados, sin instalar ni tocar el Postgres del sistema:
+
+```bash
+docker compose up --build        # http://127.0.0.1:5000
+```
+
+La base se crea y se siembra sola al arrancar. Para reiniciarla entre demos:
+
+```bash
+docker compose down && docker compose up        # base limpia (es efímera)
+# o, sin bajar los contenedores:
+docker compose exec web python scripts/reset_db.py
+```
+
+Los usuarios de prueba son los mismos de la tabla de abajo (`nico` / `clopez` / `admin`).
+
+> La base del contenedor es **efímera** (sin volumen): cada `up` tras un `down`
+> arranca desde cero, ideal para repetir la demo.
+
+### Opción B — Instalación local (Postgres nativo)
+
+#### Windows (PowerShell)
 
 ```powershell
 .\setup.ps1     # provisiona la base, crea el venv, instala deps e inicializa datos
 .\run.ps1       # inicia la app en http://127.0.0.1:5000
 ```
 
-### Linux / macOS
+#### Linux / macOS
 
 ```bash
 chmod +x setup.sh run.sh
