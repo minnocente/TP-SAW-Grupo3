@@ -124,8 +124,8 @@
     "/api/v1/facturas/ver": {
       "get": {
         "tags": ["Reportes (v1)"], "summary": "Ver factura por referencia (legacy)",
-        "description": "Consulta una factura por su referencia (formato FAC-AAAA-NNNNN).",
-        "parameters": [ { "name": "ref", "in": "query", "required": true, "schema": { "type": "string" }, "description": "Referencia de factura, ej. FAC-2026-00458" } ],
+        "description": "Consulta una factura por su referencia interna.",
+        "parameters": [ { "name": "ref", "in": "query", "required": true, "schema": { "type": "string" }, "description": "Referencia interna de la factura (se obtiene del comprobante del pedido)." } ],
         "responses": { "200": { "description": "OK" }, "400": { "description": "Formato inválido" } }
       }
     },

@@ -15,23 +15,29 @@
 
 | Pedido | Cliente | `factura_referencia` | Rol en la demo |
 |--------|---------|----------------------|----------------|
-| 102, 103, **105** | 89 | FAC-2026-00087/00088/00089 | Pedidos propios del atacante (`nico`) |
-| 100, 101, **104** | 458 | FAC-2026-00456/00457/**00458** | **Objetivos** del IDOR (víctima) |
+| 102, 103, **105** | 89 | FAC-2026-3BQZ6R0T / TM5W8K1C / **N1P4X7LC** | Pedidos propios del atacante (`nico`) |
+| 100, 101, **104** | 458 | FAC-2026-9F2KQ7JD / D4XP1M8A / **A7K9QD2F** | **Objetivos** del IDOR (víctima) |
 
 - Como `nico`, tu pedido propio de referencia es **#105**.
 - Probando hacia atrás llegás al **#104** (de la víctima), que devuelve
-  `cliente_id=458` y `factura_referencia="FAC-2026-00458"`.
+  `cliente_id=458` y `factura_referencia="FAC-2026-A7K9QD2F"` (token opaco: no es
+  adivinable ni deducible de la doc; **sólo** se obtiene con este IDOR).
 
-## Mapa de transacciones (Pasos 3 y 4 — endpoint `facturas/ver`)
+## Mapa del ledger `ldg_fin_legacy` (Pasos 3 y 4 — endpoint `facturas/ver`)
 
-| id | cliente_id | ref | Rol en la demo |
-|----|-----------|-----|----------------|
-| 88 | 458 | FAC-2026-00456 | Historial de la víctima |
-| 95 | 458 | FAC-2026-00457 | Historial de la víctima |
-| **104** | 458 | **FAC-2026-00458** | Factura del comprobante del Paso 2 |
-| 112 | 89 | FAC-2026-00089 | Transacción propia del atacante |
-| 120 | 1 | FAC-2026-00001 | Otro cliente (ruido) |
+> Nombres de columnas opacos a propósito: `acct_no` (cliente), `doc_ref` (referencia),
+> `pay_raw` (tarjeta). El atacante sólo los descubre leyendo la fuga de error del Paso 3.
 
-- La referencia **`FAC-2026-00458`** (obtenida en el Paso 2) es la entrada del Paso 3.
-- El payload final `FAC-2026-00458' OR cliente_id=458--` devuelve las 3
-  transacciones de la víctima (88, 95, 104) con `datos_pago` en texto plano.
+| id | acct_no | doc_ref | Rol en la demo |
+|----|---------|---------|----------------|
+| 88 | 458 | FAC-2026-9F2KQ7JD | Historial de la víctima |
+| 95 | 458 | FAC-2026-D4XP1M8A | Historial de la víctima |
+| **104** | 458 | **FAC-2026-A7K9QD2F** | Factura del comprobante del Paso 2 |
+| 112 | 89 | FAC-2026-N1P4X7LC | Transacción propia del atacante |
+| 120 | 1 | FAC-2026-0QW3E8ZK | Otro cliente (ruido) |
+
+- La referencia **`FAC-2026-A7K9QD2F`** (obtenida en el Paso 2) es la entrada del Paso 3.
+- El payload final `FAC-2026-A7K9QD2F' OR acct_no=458--` devuelve las 3
+  transacciones de la víctima (88, 95, 104) con `pay_raw` en texto plano.
+- **Encadenamiento:** la `doc_ref` y el `acct_no=458` salen del Paso 2; el nombre de
+  columna `acct_no` sale de la fuga del Paso 3. Sin esos datos no se llega al payload acotado.

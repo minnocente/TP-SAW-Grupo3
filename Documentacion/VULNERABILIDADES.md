@@ -32,8 +32,9 @@ impacto y cómo se corregiría. Material para el informe.
   que el pedido pertenezca al `client_id` del usuario de la sesión. Probando ids
   correlativos se accede a comprobantes ajenos.
 - **Impacto:** acceso a datos de otros clientes y obtención de identificadores
-  reutilizables (`cliente_id` de la víctima y su `factura_referencia`), que
-  habilitan los pasos siguientes.
+  reutilizables (`cliente_id` de la víctima y su `factura_referencia`, un token
+  **opaco** no adivinable). Es la **única** fuente de estos valores: sin este paso
+  no se pueden armar los Pasos 3 y 4 (dependencia explícita del encadenamiento).
 - **Mitigación:** validar propiedad del recurso en el servidor. Ejemplo:
   ```python
   if o["client_id"] != g.user["client_id"] and g.user["role"] != "admin":
@@ -47,14 +48,16 @@ impacto y cómo se corregiría. Material para el informe.
 
 - **Dónde:** `app/routes/api.py` → `ver_factura()`
   (`GET /api/v1/facturas/ver`).
-- **Causa:** hay un filtro de formato con regex, pero se usa `re.match(r"^FAC-\d{4}-\d{5}", ref)`,
+- **Causa:** hay un filtro de formato con regex, pero se usa `re.match(r"^FAC-\d{4}-[A-Z0-9]{8}", ref)`,
   que ancla **solo el inicio** (sin `$`): un valor que empieza con una referencia
   válida y concatena caracteres extra igual lo supera. Además, ante una excepción
   se devuelve el **mensaje de error y la query completa**.
 - **Impacto:** al romper la consulta con una comilla, el 500 filtra el error del
-  motor, la query y la estructura interna (tabla `transacciones` y sus 6 columnas).
+  motor, la query y la estructura interna (tabla `ldg_fin_legacy` y sus 6 columnas,
+  entre ellas `acct_no` y `pay_raw`). Esos nombres —deliberadamente opacos— son los
+  que necesita el Paso 4 para acotar la inyección a la víctima: el Paso 4 depende de esta fuga.
 - **Mitigación:**
-  - Anclar la validación de principio a fin (`^FAC-\d{4}-\d{5}$`) y, sobre todo,
+  - Anclar la validación de principio a fin (`^FAC-\d{4}-[A-Z0-9]{8}$`) y, sobre todo,
     no confiar en la validación de formato como defensa contra inyección.
   - Capturar las excepciones y responder con un error **genérico**; loggear el
     detalle solo del lado del servidor (`DEBUG = False`).
@@ -64,11 +67,16 @@ impacto y cómo se corregiría. Material para el informe.
 ## Paso 4 — A05:2021 Injection (SQLi) + A04:2021 Cryptographic Failures
 
 - **Dónde:** `app/routes/api.py` → `ver_factura()` (misma ruta) y la tabla
-  `transacciones` (`db/schema.sql` / `db/seed.sql`).
+  `ldg_fin_legacy` (`db/schema.sql` / `db/seed.sql`).
 - **Causa (A05):** la consulta se arma por **concatenación de strings** con el
-  parámetro `ref`, permitiendo inyección SQL. Con `' OR cliente_id=458--` se
-  manipula el `WHERE` para devolver todas las filas de la víctima.
-- **Causa (A04):** la columna `datos_pago` almacena **PAN, vencimiento, CVV y
+  parámetro `ref`, permitiendo inyección SQL. Con `' OR acct_no=458--` se
+  manipula el `WHERE` para devolver todas las filas de la víctima. Este payload
+  **acotado** necesita el `cliente_id=458` (Paso 2) y el nombre de columna `acct_no`
+  (Paso 3): por eso el Paso 4 depende de los dos anteriores.
+  > Nota: `' OR 1=1--` es un volcado **no acotado** (devuelve TODOS los clientes).
+  > Es una propiedad inherente de la SQLi que no se elimina sin corregir la vuln; la
+  > exfiltración dirigida *a la víctima* sí exige los datos de los Pasos 2 y 3.
+- **Causa (A04):** la columna `pay_raw` almacena **PAN, vencimiento, CVV y
   titular en texto plano**, y el endpoint los devuelve tal cual.
 - **Impacto:** exfiltración del historial comercial completo de la víctima y de
   sus datos de tarjeta, sin privilegios de administrador (pérdida crítica de
@@ -76,8 +84,8 @@ impacto y cómo se corregiría. Material para el informe.
 - **Mitigación:**
   - Usar **consultas parametrizadas** (placeholders `%s`), nunca concatenación:
     ```python
-    query("SELECT id, cliente_id, fecha, total, detalle_items FROM transacciones"
-          " WHERE ref = %s AND cliente_id = %s", (ref, g.user["client_id"]))
+    query("SELECT id, acct_no, fecha, total, detalle_items FROM ldg_fin_legacy"
+          " WHERE doc_ref = %s AND acct_no = %s", (ref, g.user["client_id"]))
     ```
     (acotando además por el cliente de la sesión).
   - **No almacenar** CVV (prohibido por PCI-DSS); tokenizar o cifrar el PAN y

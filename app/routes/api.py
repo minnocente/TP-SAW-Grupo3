@@ -5,11 +5,15 @@ vulnerabilidades de la cadena, marcadas con comentarios  >>> VULN <<< .
 El resto de los endpoints son "de decorado": realistas pero de implementación
 mínima, para que la documentación de la API (Paso 1) luzca completa.
 
-Cadena (nueva propuesta):
-    Paso 1  A02  /api/docs expuesto  ->  revela el endpoint legacy del comprobante
-    Paso 2  A01  GET /api/v1/pedidos/<id>/comprobante  (IDOR, sin validar propiedad)
-    Paso 3  A10  GET /api/v1/facturas/ver?ref=...      (filtro bypassable + fuga de error)
-    Paso 4  A05  idem  (SQLi por concatenación)  +  A04 (tarjetas en texto plano)
+Cadena (cada paso depende del anterior):
+    Paso 1  A02  /api/docs expuesto  ->  revela los endpoints legacy (sin filtrar valores).
+    Paso 2  A01  GET /api/v1/pedidos/<id>/comprobante  (IDOR): ÚNICA fuente del cliente_id
+                 de la víctima (458) y de una `factura_referencia` válida (token opaco).
+    Paso 3  A10  GET /api/v1/facturas/ver?ref=...': filtro bypassable + fuga de error que
+                 revela la tabla/columnas internas (ldg_fin_legacy: acct_no, pay_raw...).
+    Paso 4  A05  idem (SQLi por concatenación) + A04 (tarjetas en texto plano): el payload
+                 acotado a la víctima (OR acct_no=458) necesita el id (Paso 2) y el nombre
+                 de columna (Paso 3); sin ambos no se puede llegar hasta acá.
 """
 import re
 
@@ -265,7 +269,9 @@ def comprobante(pedido_id):
     >>> VULN (Paso 2) - A01 Broken Access Control / IDOR <<<
     Sólo exige estar autenticado; NO verifica que el pedido pertenezca al
     cliente del usuario. Probando ids correlativos se accede a comprobantes
-    ajenos (y así se descubre el cliente víctima y su referencia de factura).
+    ajenos. Es la ÚNICA fuente del `cliente_id` de la víctima (458) y de una
+    `factura_referencia` válida (token opaco, no adivinable): sin este paso no
+    se puede armar el payload acotado de los Pasos 3 y 4.
     """
     o = query(
         "SELECT id, client_id, total, factura_referencia, created_at"
@@ -298,20 +304,22 @@ def ver_factura():
     >>> VULN (Pasos 3 y 4) - A10 + A05 + A04 <<<
     - A10: hay un filtro de formato con regex, pero `re.match` ancla sólo el
       INICIO del string (sin `$`), así que un payload que empieza con una ref
-      válida y concatena SQL igual lo supera. Ante una excepción se devuelve el
-      mensaje de error y la query completa (fuga de estructura interna).
+      de formato válido y concatena SQL igual lo supera. Ante una excepción se
+      devuelve el mensaje de error y la query completa: así se filtran la tabla
+      interna (`ldg_fin_legacy`) y sus columnas opacas (`acct_no`, `pay_raw`...),
+      dato necesario para armar el payload acotado del Paso 4.
     - A05: la consulta se arma CONCATENANDO el parámetro `ref` en el SQL.
-    - A04: `datos_pago` guarda tarjetas en texto plano y se devuelven tal cual.
+    - A04: `pay_raw` guarda tarjetas en texto plano y se devuelven tal cual.
     """
     ref = request.args.get("ref", "")
 
     # Filtro de formato (bypassable: ancla sólo el inicio).
-    if not re.match(r"^FAC-\d{4}-\d{5}", ref):
+    if not re.match(r"^FAC-\d{4}-[A-Z0-9]{8}", ref):
         return jsonify({"error": "Formato de referencia inválido"}), 400
 
     sql = (
-        "SELECT id, cliente_id, fecha, total, detalle_items, datos_pago "
-        f"FROM transacciones WHERE ref = '{ref}'"
+        "SELECT id, acct_no, fecha, total, detalle_items, pay_raw "
+        f"FROM ldg_fin_legacy WHERE doc_ref = '{ref}'"
     )
     db = get_db()
     try:

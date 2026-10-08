@@ -1,7 +1,7 @@
 -- Esquema del laboratorio OrderFlow (plataforma ficticia de pedidos y logística)
 -- Base: PostgreSQL. Se recrea desde cero cada vez (DROP + CREATE) para reproducibilidad.
 
-DROP TABLE IF EXISTS transacciones CASCADE;
+DROP TABLE IF EXISTS ldg_fin_legacy CASCADE;
 DROP TABLE IF EXISTS invoices CASCADE;
 DROP TABLE IF EXISTS shipments CASCADE;
 DROP TABLE IF EXISTS order_items CASCADE;
@@ -39,7 +39,8 @@ CREATE TABLE products (
 );
 
 -- Pedidos. Cada pedido pertenece a un cliente.
--- `factura_referencia` respalda el comprobante consultado en el Paso 2 (IDOR).
+-- `factura_referencia` respalda el comprobante del Paso 2 (IDOR). Es un token OPACO
+-- (no adivinable ni secuencial): sólo se obtiene haciendo el IDOR del Paso 2.
 CREATE TABLE orders (
     id                  SERIAL PRIMARY KEY,
     client_id           INTEGER NOT NULL REFERENCES clients(id),
@@ -78,14 +79,16 @@ CREATE TABLE invoices (
     issued_at  TIMESTAMP NOT NULL DEFAULT now()
 );
 
--- Transacciones financieras (respaldan GET /api/v1/facturas/ver, Pasos 3 y 4).
--- `datos_pago` guarda los datos de tarjeta EN TEXTO PLANO a propósito (A04).
-CREATE TABLE transacciones (
+-- Ledger financiero legacy (respalda GET /api/v1/facturas/ver, Pasos 3 y 4).
+-- Nombres de tabla/columnas deliberadamente opacos: el atacante sólo los descubre
+-- leyendo la fuga de error del Paso 3 (A10). Así el Paso 4 depende del Paso 3.
+-- `pay_raw` guarda los datos de tarjeta EN TEXTO PLANO a propósito (A04).
+CREATE TABLE ldg_fin_legacy (
     id            SERIAL PRIMARY KEY,
-    cliente_id    INTEGER NOT NULL,
+    acct_no       INTEGER NOT NULL,
     fecha         DATE,
     total         NUMERIC(12,2) NOT NULL DEFAULT 0,
     detalle_items JSONB,
-    datos_pago    TEXT,
-    ref           TEXT
+    pay_raw       TEXT,
+    doc_ref       TEXT
 );

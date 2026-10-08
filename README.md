@@ -19,10 +19,10 @@ comercial y los datos de tarjeta de otro cliente**.
 
 | Paso | Vulnerabilidad | Resultado |
 |------|----------------|-----------|
-| 1 | **A02 – Security Misconfiguration** | La documentación de la API (`/api/docs`) es accesible sin control → se descubre un endpoint *legacy*: `GET /api/v1/pedidos/{id}/comprobante`. |
-| 2 | **A01 – Broken Access Control / IDOR** | `GET /api/v1/pedidos/{id}/comprobante` no valida propiedad → se leen comprobantes de otros clientes (víctima `cliente_id=458`, factura `FAC-2026-00458`). |
-| 3 | **A10 – Mishandling of Exceptional Conditions** | `GET /api/v1/facturas/ver?ref=` tiene un filtro de formato *bypassable*; al romper el SQL, el error 500 filtra el stack trace de la base, la query y la tabla `transacciones`. |
-| 4 | **A05 – Injection** + **A04 – Cryptographic Failures** | La misma ruta arma SQL por concatenación → `ref=FAC-2026-00458' OR cliente_id=458--` devuelve todo el historial de la víctima, con **tarjetas en texto plano** (objetivo final). |
+| 1 | **A02 – Security Misconfiguration** | La documentación de la API (`/api/docs`) es accesible sin control → se descubren los endpoints *legacy* (`GET /api/v1/pedidos/{id}/comprobante`, `GET /api/v1/facturas/ver`). La doc revela *dónde* están, pero **no** entrega referencias usables. |
+| 2 | **A01 – Broken Access Control / IDOR** | `GET /api/v1/pedidos/{id}/comprobante` no valida propiedad → se leen comprobantes ajenos. **Única** fuente del `cliente_id` de la víctima (`458`) y de una referencia válida (token opaco `FAC-2026-A7K9QD2F`). Habilita los Pasos 3 y 4. |
+| 3 | **A10 – Mishandling of Exceptional Conditions** | `GET /api/v1/facturas/ver?ref=` (con la referencia del Paso 2) tiene un filtro de formato *bypassable*; al romper el SQL, el error 500 filtra la query y los nombres internos (tabla `ldg_fin_legacy`, columnas `acct_no`/`pay_raw`) necesarios para el Paso 4. |
+| 4 | **A05 – Injection** + **A04 – Cryptographic Failures** | La misma ruta arma SQL por concatenación → `ref=FAC-2026-A7K9QD2F' OR acct_no=458--` (usa el `cliente_id` del Paso 2 y la columna del Paso 3) devuelve todo el historial de la víctima, con **tarjetas en texto plano** (objetivo final). |
 
 El paso a paso para la demo está en [`Documentacion/WALKTHROUGH.md`](Documentacion/WALKTHROUGH.md)
 (Windows) y [`Documentacion/WALKTHROUGH_LINUX_MINT.md`](Documentacion/WALKTHROUGH_LINUX_MINT.md)

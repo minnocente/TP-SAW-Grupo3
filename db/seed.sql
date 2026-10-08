@@ -22,14 +22,16 @@ INSERT INTO products (id, name, sku, price, stock) VALUES
     (8, 'Bolsa antiestática A4 (x1000)',                'BAG-A4',      5400.00, 95);
 
 -- Pedidos. `factura_referencia` es la referencia que devuelve el comprobante (Paso 2).
+--   Es un token OPACO (no adivinable ni secuencial, no contiene el cliente_id): el
+--   atacante sólo puede conseguir una referencia válida de la víctima haciendo el IDOR.
 --   nico (client 89) es dueño del pedido 105; al probar hacia atrás llega al 104 (víctima 458).
 INSERT INTO orders (id, client_id, status, total, notes, factura_referencia, created_at) VALUES
-    (100, 458, 'entregado',  210000.00, 'Entrega en depósito La Plata',        'FAC-2026-00456', '2026-07-15 10:00:00'),
-    (101, 458, 'entregado',  310000.00, 'Coordinar con portería',              'FAC-2026-00457', '2026-08-12 09:30:00'),
-    (102, 89,  'procesando',  48000.00, 'Entregar en horario de mañana',       'FAC-2026-00087', '2026-08-20 11:10:00'),
-    (103, 89,  'enviado',     90000.00, 'Dejar en recepción',                  'FAC-2026-00088', '2026-09-01 14:03:00'),
-    (104, 458, 'procesando', 125000.00, 'Pedido prioritario - cuenta corporativa', 'FAC-2026-00458', '2026-09-10 11:40:00'),
-    (105, 89,  'pendiente',   72000.00, 'Esperando aprobación de crédito',     'FAC-2026-00089', '2026-09-25 13:15:00');
+    (100, 458, 'entregado',  210000.00, 'Entrega en depósito La Plata',        'FAC-2026-9F2KQ7JD', '2026-07-15 10:00:00'),
+    (101, 458, 'entregado',  310000.00, 'Coordinar con portería',              'FAC-2026-D4XP1M8A', '2026-08-12 09:30:00'),
+    (102, 89,  'procesando',  48000.00, 'Entregar en horario de mañana',       'FAC-2026-3BQZ6R0T', '2026-08-20 11:10:00'),
+    (103, 89,  'enviado',     90000.00, 'Dejar en recepción',                  'FAC-2026-TM5W8K1C', '2026-09-01 14:03:00'),
+    (104, 458, 'procesando', 125000.00, 'Pedido prioritario - cuenta corporativa', 'FAC-2026-A7K9QD2F', '2026-09-10 11:40:00'),
+    (105, 89,  'pendiente',   72000.00, 'Esperando aprobación de crédito',     'FAC-2026-N1P4X7LC', '2026-09-25 13:15:00');
 
 -- Renglones (sostienen la vista web del detalle de pedido).
 INSERT INTO order_items (order_id, product_id, qty, unit_price) VALUES
@@ -44,31 +46,33 @@ INSERT INTO shipments (order_id, address, carrier, tracking, status) VALUES
 
 -- Facturas (fachada)
 INSERT INTO invoices (order_id, number, amount, issued_at) VALUES
-    (103, 'FAC-2026-00088', 90000.00,  '2026-09-01 15:00:00'),
-    (100, 'FAC-2026-00456', 210000.00, '2026-07-15 11:00:00');
+    (103, 'FAC-2026-TM5W8K1C', 90000.00,  '2026-09-01 15:00:00'),
+    (100, 'FAC-2026-9F2KQ7JD', 210000.00, '2026-07-15 11:00:00');
 
--- Transacciones financieras (Pasos 3 y 4). `datos_pago` EN TEXTO PLANO (A04 a propósito).
---   Víctima cliente_id=458: ids 88, 95, 104 (historial completo que exfiltra el atacante).
-INSERT INTO transacciones (id, cliente_id, fecha, total, detalle_items, datos_pago, ref) VALUES
+-- Ledger financiero legacy (Pasos 3 y 4). `pay_raw` EN TEXTO PLANO (A04 a propósito).
+--   Nombres de columnas opacos (acct_no, pay_raw, doc_ref): el atacante los descubre sólo
+--   leyendo la fuga de error del Paso 3, que es lo que habilita el payload acotado del Paso 4.
+--   Víctima acct_no=458: ids 88, 95, 104 (historial completo que exfiltra el atacante).
+INSERT INTO ldg_fin_legacy (id, acct_no, fecha, total, detalle_items, pay_raw, doc_ref) VALUES
     (88, 458, '2026-07-15', 450000.00,
      '[{"producto": "Pallet Cajas Cartón Reforzado 40x40", "cantidad": 5, "precio_unitario": 60000.00}, {"producto": "Film Stretch Industrial 500mm", "cantidad": 15, "precio_unitario": 10000.00}]'::jsonb,
      'PAN: 4509-8812-3456-8921 | VENC: 11/28 | CVV: 732 | TITULAR: CARLOS LOPEZ',
-     'FAC-2026-00456'),
+     'FAC-2026-9F2KQ7JD'),
     (95, 458, '2026-08-12', 310000.00,
      '[{"producto": "Cinta de Embalaje Transparente x 48mm", "cantidad": 50, "precio_unitario": 3200.00}, {"producto": "Dispensador de Cinta Manual Reforzado", "cantidad": 10, "precio_unitario": 15000.00}]'::jsonb,
      'PAN: 4509-8812-3456-8921 | VENC: 11/28 | CVV: 732 | TITULAR: CARLOS LOPEZ',
-     'FAC-2026-00457'),
+     'FAC-2026-D4XP1M8A'),
     (104, 458, '2026-09-10', 125000.00,
      '[{"producto": "Precintos de Seguridad Plásticos Numerados x 1000", "cantidad": 1, "precio_unitario": 125000.00}]'::jsonb,
      'PAN: 4509-8812-3456-8921 | VENC: 11/28 | CVV: 732 | TITULAR: CARLOS LOPEZ',
-     'FAC-2026-00458'),
+     'FAC-2026-A7K9QD2F'),
     -- Transacción propia del atacante (consulta legítima por su propia ref).
     (112, 89, '2026-09-25', 72000.00,
      '[{"producto": "Pallet Cajas Cartón Reforzado 40x40", "cantidad": 1, "precio_unitario": 60000.00}, {"producto": "Cinta de Embalaje Transparente x 48mm", "cantidad": 1, "precio_unitario": 3200.00}]'::jsonb,
      'PAN: 4000-1234-5678-9010 | VENC: 05/27 | CVV: 111 | TITULAR: NICOLAS COMPETIDOR',
-     'FAC-2026-00089'),
-    -- Otro cliente, para que el OR cliente_id=458 recorte visiblemente al conjunto de la víctima.
+     'FAC-2026-N1P4X7LC'),
+    -- Otro cliente, para que el OR acct_no=458 recorte visiblemente al conjunto de la víctima.
     (120, 1, '2026-09-05', 15000.00,
      '[{"producto": "Etiquetas térmicas 100x150 (x500)", "cantidad": 5, "precio_unitario": 2650.00}]'::jsonb,
      'PAN: 4777-0000-1111-2222 | VENC: 09/26 | CVV: 999 | TITULAR: ORDERFLOW OPS',
-     'FAC-2026-00001');
+     'FAC-2026-0QW3E8ZK');

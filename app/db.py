@@ -85,7 +85,7 @@ def init_db():
 
             # Reiniciar las secuencias de las tablas con ids explícitos en el seed.
             for table in ("clients", "products", "orders", "order_items",
-                          "shipments", "invoices", "transacciones", "users"):
+                          "shipments", "invoices", "ldg_fin_legacy", "users"):
                 cur.execute(
                     "SELECT setval(pg_get_serial_sequence(%s, 'id'),"
                     " COALESCE((SELECT MAX(id) FROM {} ), 1), true)".format(table),
