@@ -16,9 +16,46 @@
     <span class="brand-name" style="color:var(--ink)">OrderFlow</span>
   </a>
 
-  <div class="errorcode">404</div>
+  <svg class="error-illus" viewBox="0 0 240 230" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Paquete no encontrado">
+    <!-- sombra -->
+    <ellipse cx="120" cy="205" rx="64" ry="9" fill="#1e1b4b" opacity=".08"/>
+    <!-- destellos -->
+    <g stroke="#c7d2fe" stroke-width="2.4" stroke-linecap="round">
+      <path d="M52 150h10M57 145v10"/>
+      <path d="M198 160h9M202.5 155.5v9"/>
+      <path d="M60 96h8M64 92v8"/>
+    </g>
+    <!-- solapas abiertas -->
+    <polygon points="78,120 120,120 112,98 70,98" fill="#a5b4fc" stroke="#6366f1" stroke-width="2" stroke-linejoin="round"/>
+    <polygon points="120,120 162,120 170,98 128,98" fill="#a5b4fc" stroke="#6366f1" stroke-width="2" stroke-linejoin="round"/>
+    <!-- cuerpo de la caja -->
+    <rect x="78" y="120" width="84" height="74" rx="7" fill="#c7d2fe" stroke="#6366f1" stroke-width="2"/>
+    <line x1="120" y1="122" x2="120" y2="192" stroke="#6366f1" stroke-width="2" opacity=".28"/>
+    <!-- etiqueta de envío "404" -->
+    <rect x="95" y="133" width="50" height="43" rx="4" fill="#ffffff" stroke="#6366f1" stroke-width="1.5"/>
+    <text x="120" y="153" text-anchor="middle" font-family="Inter, Segoe UI, system-ui, sans-serif" font-size="17" font-weight="800" fill="#4f46e5">404</text>
+    <g stroke="#334155" stroke-linecap="round">
+      <line x1="103" y1="162" x2="103" y2="170" stroke-width="2"/>
+      <line x1="107" y1="162" x2="107" y2="170" stroke-width="1"/>
+      <line x1="111" y1="162" x2="111" y2="170" stroke-width="2.2"/>
+      <line x1="116" y1="162" x2="116" y2="170" stroke-width="1"/>
+      <line x1="120" y1="162" x2="120" y2="170" stroke-width="2"/>
+      <line x1="125" y1="162" x2="125" y2="170" stroke-width="1.4"/>
+      <line x1="129" y1="162" x2="129" y2="170" stroke-width="2.4"/>
+      <line x1="134" y1="162" x2="134" y2="170" stroke-width="1"/>
+      <line x1="138" y1="162" x2="138" y2="170" stroke-width="2"/>
+    </g>
+    <!-- chapita con signo de pregunta -->
+    <g class="tag">
+      <line x1="170" y1="104" x2="184" y2="88" stroke="#818cf8" stroke-width="2" stroke-linecap="round"/>
+      <circle cx="187" cy="80" r="18" fill="#ffffff" stroke="#818cf8" stroke-width="2.2"/>
+      <text x="187" y="87" text-anchor="middle" font-family="Inter, Segoe UI, system-ui, sans-serif" font-size="21" font-weight="800" fill="#6366f1">?</text>
+    </g>
+  </svg>
+
+  <span class="error-eyebrow">Error 404</span>
   <h1>No encontramos la página que buscás</h1>
-  <p>Es posible que el enlace esté roto o que la dirección haya cambiado. Verificá la URL o volvé al inicio.</p>
+  <p>Puede que el enlace esté roto o que la dirección haya cambiado. Verificá la URL o volvé al inicio.</p>
   <div class="errorpage-actions">
     <a class="btn btn-primary" href="{{ url_for('web.dashboard') if g.user else url_for('web.login') }}">Volver al inicio</a>
     <a class="btn" href="mailto:soporte@orderflow.com.ar">Contactar a soporte</a>
