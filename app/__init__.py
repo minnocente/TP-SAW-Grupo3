@@ -6,7 +6,7 @@ laboratorio de seguridad. Contiene vulnerabilidades sembradas a propósito.
 from datetime import date, datetime
 from decimal import Decimal
 
-from flask import Flask
+from flask import Flask, jsonify, render_template, request
 from flask.json.provider import DefaultJSONProvider
 from flask_swagger_ui import get_swaggerui_blueprint
 
@@ -55,6 +55,16 @@ def create_app(config_class=Config):
         config={"app_name": "OrderFlow API"},
     )
     app.register_blueprint(swagger_bp, url_prefix=SWAGGER_URL)
+
+    # Páginas de error de la fachada. Las rutas de la API devuelven su propio
+    # JSON de error de forma explícita, así que este handler sólo alcanza a las
+    # rutas no encontradas: responde JSON bajo /api/ y una página con la estética
+    # del portal en el resto.
+    @app.errorhandler(404)
+    def not_found(error):
+        if request.path.startswith("/api/"):
+            return jsonify({"error": "Recurso no encontrado"}), 404
+        return render_template("404.html"), 404
 
     # Crea el esquema automáticamente si todavía no existe.
     with app.app_context():
