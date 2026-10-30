@@ -40,7 +40,7 @@ def health():
 
 @bp.get("/version")
 def version():
-    return jsonify({"name": "OrderFlow API", "version": "1.4.2", "env": "lab"})
+    return jsonify({"name": "OrderFlow API", "version": "1.4.2", "env": "production"})
 
 
 # --------------------------------------------------------------------------- #

@@ -1,43 +1,109 @@
 {% extends "base.html" %}
 {% block title %}Pedido #{{ order_id }}{% endblock %}
 {% block content %}
-<p><a class="link" href="{{ url_for('web.orders') }}">← Volver a pedidos</a></p>
-<h1 class="page-title">Pedido #{{ order_id }}</h1>
+<a class="back" href="{{ url_for('web.orders') }}">← Volver a mis pedidos</a>
+<div class="page-head">
+  <div>
+    <h1 class="page-title">Pedido #{{ order_id }} <span id="st"></span></h1>
+    <p class="page-sub" id="sub">&nbsp;</p>
+  </div>
+</div>
 
-<div id="detail"><p class="muted">Cargando…</p></div>
+<div id="detail">
+  <div class="grid-3">
+    <div class="panel panel-body"><span class="skel"></span><br><span class="skel" style="width:60%"></span></div>
+    <div class="panel panel-body"><span class="skel"></span><br><span class="skel" style="width:60%"></span></div>
+    <div class="panel panel-body"><span class="skel"></span><br><span class="skel" style="width:60%"></span></div>
+  </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
 const ORDER_ID = {{ order_id }};
+const STEPS = ["pendiente", "procesando", "enviado", "entregado"];
+
+function timeline(o) {
+  const idx = Math.max(0, STEPS.indexOf(o.status));
+  const labels = [
+    ["Pedido recibido", fmtDate(o.created_at, true)],
+    ["En preparación", "Aprobado y en depósito"],
+    ["Despachado", o.shipment ? `${esc(o.shipment.carrier)} · ${esc(o.shipment.tracking)}` : "A coordinar"],
+    ["Entregado", o.shipment ? esc(o.shipment.address) : ""],
+  ];
+  return `<ul class="timeline">${labels.map(([t, s], i) =>
+    `<li class="${i <= idx ? "done" : ""}">${t}<small>${s}</small></li>`).join("")}</ul>`;
+}
+
 (async function () {
   const box = document.getElementById("detail");
   const r = await api(`/api/orders/${ORDER_ID}`);
-  if (!r.ok) { box.innerHTML = `<div class="alert">No se pudo cargar el pedido (${r.status}).</div>`; return; }
+  if (!r.ok) {
+    const msg = r.status === 404 ? "El pedido solicitado no existe."
+      : r.status === 403 ? "No tenés permisos para ver este pedido."
+      : "No pudimos cargar el pedido. Intentá nuevamente en unos minutos.";
+    box.innerHTML = `<div class="alert">${msg}</div>`;
+    return;
+  }
   const o = r.data;
+  document.getElementById("st").innerHTML = statusTag(o.status);
+  document.getElementById("sub").textContent = `Creado el ${fmtDate(o.created_at, true)}`;
+
   const items = (o.items || []).map(it => `
-    <tr><td>${esc(it.product_name)}</td><td>${it.qty}</td><td>${money(it.unit_price)}</td>
-    <td>${money(it.qty * it.unit_price)}</td></tr>`).join("");
+    <tr>
+      <td class="wrap">${esc(it.product_name)}</td>
+      <td class="num">${esc(it.qty)}</td>
+      <td class="num">${money(it.unit_price)}</td>
+      <td class="num">${money(it.qty * it.unit_price)}</td>
+    </tr>`).join("");
+
   const ship = o.shipment
-    ? `${esc(o.shipment.carrier)} · ${esc(o.shipment.tracking)} (${esc(o.shipment.status)})`
-    : "Sin envío registrado";
-  const inv = o.invoice ? `${esc(o.invoice.number)} — ${money(o.invoice.amount)}` : "Sin factura";
+    ? `<div class="dl">
+         <div><span class="k">Transporte</span><span class="v">${esc(o.shipment.carrier)}</span></div>
+         <div><span class="k">N° de seguimiento</span><span class="v sku">${esc(o.shipment.tracking)}</span></div>
+         <div><span class="k">Estado</span>${statusTag(o.shipment.status)}</div>
+         <div><span class="k">Dirección de entrega</span><span class="v">${esc(o.shipment.address)}</span></div>
+       </div>`
+    : `<p class="muted">El envío se asignará cuando el pedido sea aprobado.</p>`;
+
+  const inv = o.invoice
+    ? `<div class="dl">
+         <div><span class="k">Comprobante</span><span class="v">${esc(o.invoice.number)}</span></div>
+         <div><span class="k">Importe</span><span class="v">${money(o.invoice.amount)}</span></div>
+         <div><span class="k">Fecha de emisión</span><span class="v">${fmtDate(o.invoice.issued_at)}</span></div>
+       </div>`
+    : `<p class="muted">La factura se emite al despachar el pedido.</p>`;
 
   box.innerHTML = `
-    <div class="detail-grid">
-      <div><span class="k">Estado</span>${statusTag(o.status)}</div>
-      <div><span class="k">Total</span>${money(o.total)}</div>
-      <div><span class="k">Fecha</span>${esc(o.created_at)}</div>
-      <div><span class="k">Cliente</span>#${esc(o.client_id)}</div>
-      <div class="wide"><span class="k">Notas</span>${esc(o.notes)}</div>
-      <div class="wide"><span class="k">Envío</span>${ship}</div>
-      <div class="wide"><span class="k">Factura</span>${inv}</div>
+    <div class="grid-3">
+      <div class="panel">
+        <div class="panel-head"><h2 class="section-title">Resumen</h2></div>
+        <div class="panel-body dl">
+          <div><span class="k">Total del pedido</span><span class="big">${money(o.total)}</span></div>
+          <div><span class="k">Cuenta</span><span class="v">N° ${esc(o.client_id)}</span></div>
+          <div><span class="k">Observaciones</span><span class="v">${esc(o.notes) || "-"}</span></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2 class="section-title">Seguimiento</h2></div>
+        <div class="panel-body">${timeline(o)}</div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2 class="section-title">Envío y facturación</h2></div>
+        <div class="panel-body">${ship}<hr style="border:0;border-top:1px solid var(--line);margin:16px 0">${inv}</div>
+      </div>
     </div>
-    <h2 class="section-title">Renglones</h2>
-    <table class="table">
-      <thead><tr><th>Producto</th><th>Cant.</th><th>Precio</th><th>Subtotal</th></tr></thead>
-      <tbody>${items || '<tr><td colspan="4" class="muted">Sin renglones.</td></tr>'}</tbody>
-    </table>`;
+
+    <div class="panel">
+      <div class="panel-head"><h2 class="section-title">Productos</h2><span class="muted">${(o.items || []).length} ítem(s)</span></div>
+      <div class="table-wrap">
+        <table class="table">
+          <thead><tr><th>Producto</th><th class="num">Cantidad</th><th class="num">Precio unit.</th><th class="num">Subtotal</th></tr></thead>
+          <tbody>${items || emptyRow(4, "Este pedido no tiene productos cargados.")}</tbody>
+          <tfoot><tr><td colspan="3">Total (IVA y envío incluidos)</td><td class="num">${money(o.total)}</td></tr></tfoot>
+        </table>
+      </div>
+    </div>`;
 })();
 </script>
 {% endblock %}

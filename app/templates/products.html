@@ -1,19 +1,30 @@
 {% extends "base.html" %}
-{% block title %}Productos{% endblock %}
+{% block title %}Catálogo{% endblock %}
 {% block content %}
-<h1 class="page-title">Catálogo de productos</h1>
+<div class="page-head">
+  <div>
+    <h1 class="page-title">Catálogo de productos</h1>
+    <p class="page-sub">Precios vigentes y stock disponible en depósito.</p>
+  </div>
+</div>
 
-<form class="searchbar" id="searchForm" onsubmit="return false;">
-  <input type="text" id="q" placeholder="Buscar por nombre o SKU…">
-  <button class="btn" id="btnSearch">Buscar</button>
-  <button class="btn btn-ghost" id="btnAll">Ver todos</button>
-</form>
-
-<table class="table">
-  <thead><tr><th>#</th><th>Producto</th><th>SKU</th><th>Precio</th><th>Stock</th></tr></thead>
-  <tbody id="rows"><tr><td colspan="5" class="muted">Cargando…</td></tr></tbody>
-</table>
-<p class="muted" id="msg"></p>
+<div class="panel">
+  <form class="toolbar" id="searchForm" onsubmit="return false;">
+    <div class="search">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <input class="input" type="text" id="q" placeholder="Buscar por nombre o SKU…">
+    </div>
+    <button class="btn btn-primary" id="btnSearch">Buscar</button>
+    <button class="btn" id="btnAll">Ver todos</button>
+  </form>
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>Producto</th><th>SKU</th><th class="num">Precio</th><th class="num">Stock</th><th>Disponibilidad</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+  <div class="table-foot" id="msg"></div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -21,32 +32,45 @@
 const tb = document.getElementById("rows");
 const msg = document.getElementById("msg");
 
+function availability(stock) {
+  if (stock <= 0) return '<span class="tag tag-low"><i></i>Sin stock</span>';
+  if (stock < 100) return '<span class="tag tag-pendiente"><i></i>Stock bajo</span>';
+  return '<span class="tag tag-entregado"><i></i>Disponible</span>';
+}
+
 function render(list) {
   if (!Array.isArray(list) || !list.length) {
-    tb.innerHTML = '<tr><td colspan="5" class="muted">Sin resultados.</td></tr>';
+    tb.innerHTML = emptyRow(5, "No encontramos productos con ese criterio.");
+    msg.textContent = "";
     return;
   }
   tb.innerHTML = list.map(p => `
-    <tr><td>#${esc(p.id)}</td><td>${esc(p.name)}</td><td>${esc(p.sku)}</td>
-    <td>${money(p.price)}</td><td>${esc(p.stock)}</td></tr>`).join("");
+    <tr>
+      <td class="wrap"><strong>${esc(p.name)}</strong></td>
+      <td><span class="sku">${esc(p.sku)}</span></td>
+      <td class="num">${money(p.price)}</td>
+      <td class="num">${Number(p.stock).toLocaleString("es-AR")}</td>
+      <td>${availability(Number(p.stock))}</td>
+    </tr>`).join("");
+  msg.textContent = `${list.length} producto${list.length === 1 ? "" : "s"}`;
 }
 
 async function loadAll() {
-  msg.textContent = "";
+  tb.innerHTML = skeletonRows(5, 5);
   const r = await api("/api/products");
   render(r.ok ? r.data : []);
 }
 
 async function doSearch() {
-  msg.textContent = "";
   const q = document.getElementById("q").value;
+  tb.innerHTML = skeletonRows(3, 5);
   const r = await api(`/api/products/search?q=${encodeURIComponent(q)}`);
   if (r.ok) { render(r.data); }
-  else { tb.innerHTML = ""; msg.textContent = "Error en la búsqueda."; }
+  else { tb.innerHTML = emptyRow(5, "No pudimos completar la búsqueda."); msg.textContent = ""; }
 }
 
 document.getElementById("btnSearch").addEventListener("click", doSearch);
-document.getElementById("btnAll").addEventListener("click", loadAll);
+document.getElementById("btnAll").addEventListener("click", () => { document.getElementById("q").value = ""; loadAll(); });
 document.getElementById("q").addEventListener("keydown", e => { if (e.key === "Enter") doSearch(); });
 loadAll();
 </script>

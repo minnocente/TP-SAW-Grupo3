@@ -1,23 +1,55 @@
 {% extends "base.html" %}
-{% block title %}Perfil{% endblock %}
+{% block title %}Mi perfil{% endblock %}
 {% block content %}
-<h1 class="page-title">Mi perfil</h1>
-<div class="detail-grid" id="prof"><p class="muted">Cargando…</p></div>
+<div class="page-head">
+  <div>
+    <h1 class="page-title">Mi perfil</h1>
+    <p class="page-sub">Datos de tu usuario y de la empresa asociada.</p>
+  </div>
+</div>
+
+<div id="prof">
+  <div class="panel panel-body"><span class="skel"></span><br><span class="skel" style="width:60%"></span></div>
+</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
 (async function () {
-  const r = await api("/api/profile");
+  const r = await PROFILE;
   const box = document.getElementById("prof");
-  if (!r.ok) { box.innerHTML = '<div class="alert">No se pudo cargar el perfil.</div>'; return; }
+  if (!r.ok) { box.innerHTML = '<div class="alert">No pudimos cargar tu perfil. Intentá nuevamente.</div>'; return; }
   const p = r.data;
+  const name = p.full_name || p.username;
+  const role = p.role === "admin" ? "Administrador" : "Usuario de cliente";
   box.innerHTML = `
-    <div><span class="k">Usuario</span>${esc(p.username)}</div>
-    <div><span class="k">Nombre</span>${esc(p.full_name)}</div>
-    <div><span class="k">Rol</span>${esc(p.role)}</div>
-    <div><span class="k">Cliente</span>${esc(p.client_name)}</div>
-    <div class="wide"><span class="k">Email</span>${esc(p.client_email)}</div>`;
+    <div class="panel panel-body" style="margin-bottom:16px">
+      <div class="profile-head">
+        <span class="avatar lg">${esc(initials(name))}</span>
+        <div>
+          <h2>${esc(name)}</h2>
+          <span class="muted">${esc(role)} · ${esc(p.client_name)}</span>
+        </div>
+      </div>
+    </div>
+    <div class="grid-half">
+      <div class="panel">
+        <div class="panel-head"><h2 class="section-title">Usuario</h2></div>
+        <div class="panel-body dl">
+          <div><span class="k">Nombre de usuario</span><span class="v">${esc(p.username)}</span></div>
+          <div><span class="k">Nombre completo</span><span class="v">${esc(name)}</span></div>
+          <div><span class="k">Rol</span><span class="v">${esc(role)}</span></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2 class="section-title">Empresa</h2></div>
+        <div class="panel-body dl">
+          <div><span class="k">Razón social</span><span class="v">${esc(p.client_name)}</span></div>
+          <div><span class="k">N° de cuenta</span><span class="v">${esc(p.client_id)}</span></div>
+          <div><span class="k">Email de contacto</span><span class="v">${esc(p.client_email)}</span></div>
+        </div>
+      </div>
+    </div>`;
 })();
 </script>
 {% endblock %}

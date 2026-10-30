@@ -9,9 +9,9 @@ from werkzeug.security import generate_password_hash
 # (Se documentan en Documentacion/CREDENCIALES.md)
 SEED_USERS = [
     # username,  password,     full_name,                   role,    client_id
-    ("admin",    "admin123",   "Administrador OrderFlow",   "admin", 1),
-    ("nico",     "nico123",    "Nicolás (atacante)",        "user",  89),   # atacante
-    ("clopez",   "cliente123", "Carlos Lopez (víctima)",    "user",  458),  # víctima
+    ("admin",    "admin123",   "Administración OrderFlow",  "admin", 1),
+    ("nico",     "nico123",    "Nicolás Romero",            "user",  89),   # atacante
+    ("clopez",   "cliente123", "Carlos López",              "user",  458),  # víctima
 ]
 
 

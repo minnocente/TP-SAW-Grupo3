@@ -119,7 +119,7 @@ python scripts/reset_db.py
 
 | Usuario | Contraseña | Rol | Cliente (client_id) |
 |---------|-----------|-----|---------------------|
-| `nico` | `nico123` | user | Competidora Rápida SRL (89) — **atacante** |
+| `nico` | `nico123` | user | Distribuidora Rápida SRL (89) — **atacante** |
 | `clopez` | `cliente123` | user | Comercial Lopez e Hijos S.A. (458) — **víctima** |
 | `admin` | `admin123` | admin | OrderFlow Operaciones (1) |
 

@@ -6,9 +6,9 @@
 --   89  = empresa del atacante (nico)
 --   458 = empresa de la víctima (Carlos Lopez)
 INSERT INTO clients (id, name, email, phone, address) VALUES
-    (1,   'OrderFlow Operaciones',        'ops@orderflow.local',       '011-4000-0000', 'Depósito Central, Av. Logística 1000'),
-    (89,  'Competidora Rápida SRL',       'compras@competidora.local', '011-4100-1111', 'Av. San Martín 450, CABA'),
-    (458, 'Comercial Lopez e Hijos S.A.', 'pedidos@lopezsa.local',     '011-4200-2222', 'Calle Rivadavia 1820, La Plata');
+    (1,   'OrderFlow Operaciones',        'operaciones@orderflow.com.ar',  '011-4000-0000', 'Depósito Central, Av. Logística 1000'),
+    (89,  'Distribuidora Rápida SRL',     'compras@distrapida.com.ar', '011-4100-1111', 'Av. San Martín 450, CABA'),
+    (458, 'Comercial Lopez e Hijos S.A.', 'pedidos@lopezehijos.com.ar', '011-4200-2222', 'Calle Rivadavia 1820, La Plata');
 
 -- Catálogo de productos (fachada web).
 INSERT INTO products (id, name, sku, price, stock) VALUES
@@ -35,17 +35,23 @@ INSERT INTO orders (id, client_id, status, total, notes, factura_referencia, cre
 INSERT INTO order_items (order_id, product_id, qty, unit_price) VALUES
     (102, 1, 1, 60000.00),
     (103, 2, 9, 10000.00),
+    (100, 1, 2, 60000.00), (100, 2, 9, 10000.00),
+    (101, 3, 50, 3200.00), (101, 4, 10, 15000.00),
     (105, 1, 1, 60000.00), (105, 3, 1, 3200.00);
 
 -- Envíos
 INSERT INTO shipments (order_id, address, carrier, tracking, status) VALUES
     (103, 'Av. San Martín 450, CABA', 'Andreani', 'ANDR-000103', 'en_transito'),
-    (100, 'Calle Rivadavia 1820, La Plata', 'OCA', 'OCA-000100', 'entregado');
+    (100, 'Calle Rivadavia 1820, La Plata', 'OCA', 'OCA-000100', 'entregado'),
+    (101, 'Calle Rivadavia 1820, La Plata', 'OCA', 'OCA-000101', 'entregado'),
+    (102, 'Av. San Martín 450, CABA', 'Andreani', 'ANDR-000102', 'preparando');
 
 -- Facturas (fachada)
 INSERT INTO invoices (order_id, number, amount, issued_at) VALUES
     (103, 'FAC-2026-00088', 90000.00,  '2026-09-01 15:00:00'),
-    (100, 'FAC-2026-00456', 210000.00, '2026-07-15 11:00:00');
+    (100, 'FAC-2026-00456', 210000.00, '2026-07-15 11:00:00'),
+    (101, 'FAC-2026-00457', 310000.00, '2026-08-12 10:00:00'),
+    (102, 'FAC-2026-00087', 48000.00,  '2026-08-20 12:00:00');
 
 -- Transacciones financieras (Pasos 3 y 4). `datos_pago` EN TEXTO PLANO (A04 a propósito).
 --   Víctima cliente_id=458: ids 88, 95, 104 (historial completo que exfiltra el atacante).
@@ -65,7 +71,7 @@ INSERT INTO transacciones (id, cliente_id, fecha, total, detalle_items, datos_pa
     -- Transacción propia del atacante (consulta legítima por su propia ref).
     (112, 89, '2026-09-25', 72000.00,
      '[{"producto": "Pallet Cajas Cartón Reforzado 40x40", "cantidad": 1, "precio_unitario": 60000.00}, {"producto": "Cinta de Embalaje Transparente x 48mm", "cantidad": 1, "precio_unitario": 3200.00}]'::jsonb,
-     'PAN: 4000-1234-5678-9010 | VENC: 05/27 | CVV: 111 | TITULAR: NICOLAS COMPETIDOR',
+     'PAN: 4000-1234-5678-9010 | VENC: 05/27 | CVV: 111 | TITULAR: NICOLAS ROMERO',
      'FAC-2026-00089'),
     -- Otro cliente, para que el OR cliente_id=458 recorte visiblemente al conjunto de la víctima.
     (120, 1, '2026-09-05', 15000.00,

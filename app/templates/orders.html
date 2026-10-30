@@ -1,31 +1,77 @@
 {% extends "base.html" %}
 {% block title %}Pedidos{% endblock %}
 {% block content %}
-<h1 class="page-title">Mis pedidos</h1>
-<p class="muted">Pedidos asociados a su cuenta.</p>
+<div class="page-head">
+  <div>
+    <h1 class="page-title">Mis pedidos</h1>
+    <p class="page-sub">Consultá el estado, el envío y la facturación de cada pedido.</p>
+  </div>
+</div>
 
-<table class="table">
-  <thead><tr><th>#</th><th>Estado</th><th>Total</th><th>Notas</th><th>Fecha</th><th></th></tr></thead>
-  <tbody id="rows"><tr><td colspan="6" class="muted">Cargando…</td></tr></tbody>
-</table>
+<div class="panel">
+  <div class="toolbar">
+    <div class="search">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <input class="input" type="text" id="q" placeholder="Buscar por número o notas…">
+    </div>
+    <div class="chips" id="chips">
+      <button class="chip active" data-s="">Todos</button>
+      <button class="chip" data-s="pendiente">Pendientes</button>
+      <button class="chip" data-s="procesando">En proceso</button>
+      <button class="chip" data-s="enviado">Enviados</button>
+      <button class="chip" data-s="entregado">Entregados</button>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>Pedido</th><th>Fecha</th><th>Estado</th><th>Notas</th><th class="num">Total</th><th></th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+  <div class="table-foot" id="count"></div>
+</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-(async function () {
-  const r = await api("/api/orders");
-  const tb = document.getElementById("rows");
-  const orders = r.ok ? r.data : [];
-  if (!orders.length) { tb.innerHTML = '<tr><td colspan="6" class="muted">Sin pedidos.</td></tr>'; return; }
-  tb.innerHTML = orders.map(o => `
+const tb = document.getElementById("rows");
+const q = document.getElementById("q");
+let orders = [];
+let status = "";
+
+function render() {
+  const term = q.value.trim().toLowerCase();
+  const list = orders.filter(o =>
+    (!status || o.status === status) &&
+    (!term || String(o.id).includes(term) || (o.notes || "").toLowerCase().includes(term)));
+  document.getElementById("count").textContent =
+    `Mostrando ${list.length} de ${orders.length} pedido${orders.length === 1 ? "" : "s"}`;
+  if (!list.length) { tb.innerHTML = emptyRow(6, "No hay pedidos que coincidan con el filtro."); return; }
+  tb.innerHTML = list.slice().reverse().map(o => `
     <tr>
-      <td>#${o.id}</td>
+      <td><a class="order-id" href="/orders/${o.id}">#${o.id}</a></td>
+      <td>${fmtDate(o.created_at)}</td>
       <td>${statusTag(o.status)}</td>
-      <td>${money(o.total)}</td>
-      <td>${esc(o.notes)}</td>
-      <td>${esc(o.created_at)}</td>
-      <td><a class="link" href="/orders/${o.id}">Ver detalle</a></td>
+      <td class="wrap muted">${esc(o.notes)}</td>
+      <td class="num">${money(o.total)}</td>
+      <td class="num"><a class="link" href="/orders/${o.id}">Ver detalle</a></td>
     </tr>`).join("");
+}
+
+document.getElementById("chips").addEventListener("click", e => {
+  const b = e.target.closest(".chip");
+  if (!b) return;
+  document.querySelectorAll(".chip").forEach(c => c.classList.toggle("active", c === b));
+  status = b.dataset.s;
+  render();
+});
+q.addEventListener("input", render);
+
+(async function () {
+  tb.innerHTML = skeletonRows(4, 6);
+  const r = await api("/api/orders");
+  orders = r.ok ? r.data : [];
+  render();
 })();
 </script>
 {% endblock %}

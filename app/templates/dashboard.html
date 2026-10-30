@@ -1,48 +1,104 @@
 {% extends "base.html" %}
 {% block title %}Panel{% endblock %}
 {% block content %}
-<h1 class="page-title">Panel de control</h1>
-<p class="muted" id="welcome">Cargando…</p>
-
-<div class="cards" id="stats">
-  <div class="card"><div class="card-num" id="st-total">—</div><div class="card-lbl">Pedidos</div></div>
-  <div class="card"><div class="card-num" id="st-proc">—</div><div class="card-lbl">En proceso</div></div>
-  <div class="card"><div class="card-num" id="st-pend">—</div><div class="card-lbl">Pendientes</div></div>
-  <div class="card"><div class="card-num" id="st-env">—</div><div class="card-lbl">Enviados</div></div>
+<div class="page-head">
+  <div>
+    <h1 class="page-title" id="hello">Hola</h1>
+    <p class="page-sub" id="welcome">Este es el resumen de la actividad de tu cuenta.</p>
+  </div>
+  <a class="btn" href="{{ url_for('web.orders') }}">
+    <svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6"/></svg>
+    Ver todos los pedidos
+  </a>
 </div>
 
-<h2 class="section-title">Pedidos recientes</h2>
-<table class="table">
-  <thead><tr><th>#</th><th>Estado</th><th>Total</th><th>Fecha</th><th></th></tr></thead>
-  <tbody id="recent"><tr><td colspan="5" class="muted">Cargando…</td></tr></tbody>
-</table>
+<div class="kpis">
+  <div class="kpi">
+    <span class="icon i-brand"><svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6M9 13h8M9 17h6"/></svg></span>
+    <div><div class="kpi-lbl">Pedidos totales</div><div class="kpi-num" id="st-total"><span class="skel" style="width:40px;height:22px"></span></div></div>
+  </div>
+  <div class="kpi">
+    <span class="icon i-info"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg></span>
+    <div><div class="kpi-lbl">En proceso</div><div class="kpi-num" id="st-proc"><span class="skel" style="width:40px;height:22px"></span></div></div>
+  </div>
+  <div class="kpi">
+    <span class="icon i-warn"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+    <div><div class="kpi-lbl">Pendientes</div><div class="kpi-num" id="st-pend"><span class="skel" style="width:40px;height:22px"></span></div></div>
+  </div>
+  <div class="kpi">
+    <span class="icon i-ok"><svg viewBox="0 0 24 24"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span>
+    <div><div class="kpi-lbl">Monto total</div><div class="kpi-num sm" id="st-amount"><span class="skel" style="width:90px;height:22px"></span></div></div>
+  </div>
+</div>
+
+<div class="grid-2">
+  <div class="panel">
+    <div class="panel-head">
+      <h2 class="section-title">Pedidos recientes</h2>
+      <a class="link" href="{{ url_for('web.orders') }}">Ver todos</a>
+    </div>
+    <div class="table-wrap">
+      <table class="table">
+        <thead><tr><th>Pedido</th><th>Fecha</th><th>Estado</th><th class="num">Total</th></tr></thead>
+        <tbody id="recent"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h2 class="section-title">Accesos rápidos</h2></div>
+    <div class="quick">
+      <a href="{{ url_for('web.orders') }}">
+        <span class="icon i-brand"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6"/></svg></span>
+        <div><strong>Mis pedidos</strong><span class="muted">Estado, envíos y facturas</span></div>
+      </a>
+      <a href="{{ url_for('web.products') }}">
+        <span class="icon i-info"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7M12 11v10"/></svg></span>
+        <div><strong>Catálogo de productos</strong><span class="muted">Precios y stock disponible</span></div>
+      </a>
+      <a href="{{ url_for('web.profile') }}">
+        <span class="icon i-ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg></span>
+        <div><strong>Datos de la cuenta</strong><span class="muted">Usuario y empresa</span></div>
+      </a>
+      <a href="mailto:soporte@orderflow.com.ar">
+        <span class="icon i-warn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v12H5.2L4 17.2z"/><path d="M8 9h8M8 12h5"/></svg></span>
+        <div><strong>Contactar a soporte</strong><span class="muted">Respuesta en menos de 24 h</span></div>
+      </a>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
 (async function () {
-  const prof = await api("/api/profile");
-  if (prof.ok) {
+  const tb = document.getElementById("recent");
+  tb.innerHTML = skeletonRows(4, 4);
+
+  PROFILE.then(prof => {
+    if (!prof.ok) return;
+    const first = (prof.data.full_name || prof.data.username).split(" ")[0];
+    document.getElementById("hello").textContent = `Hola, ${first}`;
     document.getElementById("welcome").textContent =
-      `${prof.data.full_name || prof.data.username} — ${prof.data.client_name}`;
-  }
+      `Resumen de la actividad de ${prof.data.client_name}.`;
+  });
+
   const r = await api("/api/orders");
   const orders = r.ok ? r.data : [];
   const by = (s) => orders.filter(o => o.status === s).length;
   document.getElementById("st-total").textContent = orders.length;
   document.getElementById("st-proc").textContent = by("procesando");
   document.getElementById("st-pend").textContent = by("pendiente");
-  document.getElementById("st-env").textContent = by("enviado");
+  document.getElementById("st-amount").textContent =
+    money(orders.reduce((acc, o) => acc + Number(o.total || 0), 0));
 
-  const tb = document.getElementById("recent");
-  if (!orders.length) { tb.innerHTML = '<tr><td colspan="5" class="muted">Sin pedidos.</td></tr>'; return; }
+  if (!orders.length) { tb.innerHTML = emptyRow(4, "Todavía no tenés pedidos."); return; }
   tb.innerHTML = orders.slice(-5).reverse().map(o => `
     <tr>
-      <td>#${o.id}</td>
+      <td><a class="order-id" href="/orders/${o.id}">#${o.id}</a></td>
+      <td>${fmtDate(o.created_at)}</td>
       <td>${statusTag(o.status)}</td>
-      <td>${money(o.total)}</td>
-      <td>${esc(o.created_at)}</td>
-      <td><a class="link" href="/orders/${o.id}">Ver</a></td>
+      <td class="num">${money(o.total)}</td>
     </tr>`).join("");
 })();
 </script>

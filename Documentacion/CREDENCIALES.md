@@ -4,7 +4,7 @@
 
 | Usuario | Contraseña | Rol | Cliente (client_id) |
 |---------|-----------|-----|---------------------|
-| `nico` | `nico123` | user | Competidora Rápida SRL (89) |
+| `nico` | `nico123` | user | Distribuidora Rápida SRL (89) |
 | `clopez` | `cliente123` | user | Comercial Lopez e Hijos S.A. (458) |
 | `admin` | `admin123` | admin | OrderFlow Operaciones (1) |
 
