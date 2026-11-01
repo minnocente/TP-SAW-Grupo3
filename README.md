@@ -18,17 +18,13 @@ sembradas a propósito que permiten demostrar una cadena de explotación complet
 
 ## Cómo ejecutar
 
-**Docker (recomendado):**
-
-```bash
-docker compose up --build                            # http://127.0.0.1:5000
-docker compose exec web python scripts/reset_db.py   # reiniciar la base
-```
-
-**Local** (requiere Python 3.10+ y PostgreSQL 13+):
+Requiere Python 3.10+ y PostgreSQL 13+.
 
 - Windows: `.\setup.ps1` y luego `.\run.ps1`
 - Linux / macOS: `./setup.sh` y luego `./run.sh`
+
+La app queda en http://127.0.0.1:5000. Para reiniciar la base entre demos:
+`python scripts/reset_db.py`.
 
 ## Usuarios de prueba
 
