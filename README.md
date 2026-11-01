@@ -1,11 +1,8 @@
-# OrderFlow — Laboratorio de Seguridad Web (TP SAW · Grupo 3)
+# OrderFlow — (TP SAW · Grupo 3)
 
-Maqueta de una plataforma ficticia de gestión de pedidos, construida como
-laboratorio para *Seguridad en Aplicaciones Web*. Contiene vulnerabilidades
+Maqueta de una plataforma ficticia de gestión de pedidos, construida para *Seguridad en Aplicaciones Web*. Contiene vulnerabilidades
 sembradas a propósito que permiten demostrar una cadena de explotación completa.
 
-> ⚠️ **Uso educativo.** Aplicación intencionalmente vulnerable: correla solo en
-> local (`127.0.0.1`) y no la expongas a Internet.
 
 ## Cadena de ataque (OWASP Top 10)
 
