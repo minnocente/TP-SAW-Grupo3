@@ -1,142 +1,52 @@
 # OrderFlow — Laboratorio de Seguridad Web (TP SAW · Grupo 3)
 
-Maqueta local de una plataforma ficticia de **gestión de pedidos y logística**
-(*OrderFlow*), construida como **laboratorio de seguridad** para la materia
-*Seguridad en Aplicaciones Web*.
+Maqueta de una plataforma ficticia de gestión de pedidos, construida como
+laboratorio para *Seguridad en Aplicaciones Web*. Contiene vulnerabilidades
+sembradas a propósito que permiten demostrar una cadena de explotación completa.
 
-La aplicación contiene **vulnerabilidades sembradas a propósito** que permiten
-demostrar, en vivo, una **cadena de explotación** completa: un usuario con
-permisos básicos (un competidor malicioso) llega a **exfiltrar el historial
-comercial y los datos de tarjeta de otro cliente**.
-
-> ⚠️ **Uso educativo.** Esta aplicación es intencionalmente vulnerable. Está
-> pensada para correr **solo en local** (`127.0.0.1`). No la expongas a Internet
-> ni la uses como base para código real.
-
----
+> ⚠️ **Uso educativo.** Aplicación intencionalmente vulnerable: correla solo en
+> local (`127.0.0.1`) y no la expongas a Internet.
 
 ## Cadena de ataque (OWASP Top 10)
 
 | Paso | Vulnerabilidad | Resultado |
 |------|----------------|-----------|
-| 1 | **A02 – Security Misconfiguration** | La documentación de la API (`/api/docs`) es accesible sin control → se descubre un endpoint *legacy*: `GET /api/v1/pedidos/{id}/comprobante`. |
-| 2 | **A01 – Broken Access Control / IDOR** | `GET /api/v1/pedidos/{id}/comprobante` no valida propiedad → se leen comprobantes de otros clientes (víctima `cliente_id=458`, factura `FAC-2026-00458`). |
-| 3 | **A10 – Mishandling of Exceptional Conditions** | `GET /api/v1/facturas/ver?ref=` tiene un filtro de formato *bypassable*; al romper el SQL, el error 500 filtra el stack trace de la base, la query y la tabla `transacciones`. |
-| 4 | **A05 – Injection** + **A04 – Cryptographic Failures** | La misma ruta arma SQL por concatenación → `ref=FAC-2026-00458' OR cliente_id=458--` devuelve todo el historial de la víctima, con **tarjetas en texto plano** (objetivo final). |
-
-El paso a paso para la demo está en [`Documentacion/WALKTHROUGH.md`](Documentacion/WALKTHROUGH.md)
-(Windows) y [`Documentacion/WALKTHROUGH_LINUX_MINT.md`](Documentacion/WALKTHROUGH_LINUX_MINT.md)
-(Linux Mint / macOS). El detalle técnico y las mitigaciones, en
-[`Documentacion/VULNERABILIDADES.md`](Documentacion/VULNERABILIDADES.md).
-
----
-
-## Stack
-
-- **Python 3 + Flask** (API REST + vistas server-rendered con Jinja2)
-- **PostgreSQL** (vía `psycopg2`)
-- **flask-swagger-ui** (documentación interactiva de la API)
-- Front liviano: HTML + CSS + JS *vanilla* (sin build, funciona offline)
-
----
-
-## Requisitos
-
-> Si usás **Docker** (Opción A, más abajo) no necesitás instalar Python ni
-> PostgreSQL: alcanza con Docker + Docker Compose. Lo de abajo es para la
-> instalación local (Opción B).
-
-- **Python 3.10+** — si no lo tenés, instalalo desde
-  [python.org/downloads](https://www.python.org/downloads/) (en Windows, marcá
-  *"Add Python to PATH"* durante la instalación).
-- **PostgreSQL 13+** corriendo en local:
-  - Linux (Debian/Ubuntu/Mint): `sudo apt install postgresql`
-  - Windows: instalador de [postgresql.org](https://www.postgresql.org/download/windows/)
-    (asegurate de que `psql` quede en el PATH).
-
-El setup crea automáticamente el rol `orderflow` y la base `orderflow_lab`
-(credenciales de laboratorio, ver `app/config.py` / `db/create_db.sql`).
-
----
+| 1 | A02 – Security Misconfiguration | `/api/docs` expuesto revela un endpoint *legacy*. |
+| 2 | A01 – Broken Access Control (IDOR) | Se leen comprobantes de otros clientes. |
+| 3 | A10 – Mishandling of Exceptional Conditions | Un error 500 filtra la query y la estructura de la base. |
+| 4 | A05 – Injection + A04 – Cryptographic Failures | SQLi expone el historial de la víctima con tarjetas en texto plano. |
 
 ## Cómo ejecutar
 
-### Opción A — Docker (recomendado para la demo)
-
-Requiere **Docker** y **Docker Compose**. Levanta Flask + PostgreSQL ya
-provisionados, sin instalar ni tocar el Postgres del sistema:
+**Docker (recomendado):**
 
 ```bash
-docker compose up --build        # http://127.0.0.1:5000
+docker compose up --build                            # http://127.0.0.1:5000
+docker compose exec web python scripts/reset_db.py   # reiniciar la base
 ```
 
-La base se crea y se siembra sola al arrancar. Para reiniciarla entre demos:
+**Local** (requiere Python 3.10+ y PostgreSQL 13+):
 
-```bash
-docker compose down && docker compose up        # base limpia (es efímera)
-# o, sin bajar los contenedores:
-docker compose exec web python scripts/reset_db.py
-```
-
-Los usuarios de prueba son los mismos de la tabla de abajo (`nico` / `clopez` / `admin`).
-
-> La base del contenedor es **efímera** (sin volumen): cada `up` tras un `down`
-> arranca desde cero, ideal para repetir la demo.
-
-### Opción B — Instalación local (Postgres nativo)
-
-#### Windows (PowerShell)
-
-```powershell
-.\setup.ps1     # provisiona la base, crea el venv, instala deps e inicializa datos
-.\run.ps1       # inicia la app en http://127.0.0.1:5000
-```
-
-#### Linux / macOS
-
-```bash
-chmod +x setup.sh run.sh
-./setup.sh
-./run.sh
-```
-
-> El `setup` usa el superusuario `postgres` para crear el rol y la base
-> (en Linux, vía `sudo -u postgres`). Si tu Postgres usa otra autenticación,
-> podés correr la provisión a mano: `psql -U postgres -f db/create_db.sql`.
-
-Luego abrí **http://127.0.0.1:5000** e ingresá con alguno de los usuarios de
-prueba (ver abajo).
-
-### Reiniciar la base entre demos
-
-```bash
-python scripts/reset_db.py
-```
-
----
+- Windows: `.\setup.ps1` y luego `.\run.ps1`
+- Linux / macOS: `./setup.sh` y luego `./run.sh`
 
 ## Usuarios de prueba
 
-| Usuario | Contraseña | Rol | Cliente (client_id) |
-|---------|-----------|-----|---------------------|
-| `nico` | `nico123` | user | Distribuidora Rápida SRL (89) — **atacante** |
-| `clopez` | `cliente123` | user | Comercial Lopez e Hijos S.A. (458) — **víctima** |
-| `admin` | `admin123` | admin | OrderFlow Operaciones (1) |
+| Usuario | Contraseña | Rol |
+|---------|-----------|-----|
+| `nico` | `nico123` | atacante |
+| `clopez` | `cliente123` | víctima |
+| `admin` | `admin123` | admin |
 
-El **atacante** de la demo es `nico`. Detalle en
-[`Documentacion/CREDENCIALES.md`](Documentacion/CREDENCIALES.md).
+Detalle en [`Documentacion/CREDENCIALES.md`](Documentacion/CREDENCIALES.md).
 
----
-
-## Estructura del proyecto
+## Estructura
 
 ```
-app/            Aplicación Flask (factory, auth, db, rutas web y API)
-  routes/api.py   <- concentra las vulnerabilidades (endpoints /api/v1/...)
-  routes/web.py   <- la fachada de "app normal"
-  templates/      <- vistas Jinja
-  static/         <- CSS, JS y openapi.json
-db/             schema.sql, seed.sql y create_db.sql (provisión del rol/base)
-scripts/        reset_db.py (recrea y re-seedea la base)
-Documentacion/  Propuesta, walkthroughs de la demo y análisis de vulnerabilidades
+app/            Aplicación Flask (rutas web y API, templates, estáticos)
+db/             Schema, seed y provisión de la base
+scripts/        reset_db.py
+Documentacion/  Propuesta del TP y credenciales
 ```
+
+**Stack:** Python 3 + Flask, PostgreSQL, flask-swagger-ui, HTML/CSS/JS vanilla.
